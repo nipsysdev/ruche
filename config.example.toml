@@ -1,0 +1,18 @@
+[bee]
+image = "ethersphere/bee:2.3.2"
+password_path = "/var/lib/bee/password"
+welcome_msg = "Hello, Swarm!"
+
+[network]
+nat_addr = "1.1.1.1"
+api_port = "17xx"
+p2p_port = "18xx"
+
+[chains]
+eth_rpc = "https://some.rpc"
+gno_rpc = "https://some.rpc"
+
+[storage]
+volumes_parent = "/media"
+volume_name = "swarm_data_xx"
+node_qty_per_volume = 4
