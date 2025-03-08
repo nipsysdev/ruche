@@ -6,5 +6,7 @@ edition = "2021"
 [dependencies]
 axum = "0.8.1"
 tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
 tower = "0.5.2"
 toml = "0.8.20"
+regex = "1.11.1"
