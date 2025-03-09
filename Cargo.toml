@@ -10,3 +10,4 @@ serde = { version = "1.0", features = ["derive"] }
 tower = "0.5.2"
 toml = "0.8.20"
 regex = "1.11.1"
+polodb_core = "5.1.3"
