@@ -1,6 +1,8 @@
 use regex::Regex;
 use serde::{Deserialize, Deserializer};
 use serde::de::{Error, Visitor};
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
 
 const PORT_REGEX: &str = r"^\d{1,3}xx$";
 
@@ -40,7 +42,7 @@ where
     )
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Config {
     bee: Bee,
     network: Network,
@@ -48,14 +50,14 @@ pub struct Config {
     storage: Storage
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct Bee {
     image: String,
     password_path: String,
     welcome_msg: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct Network {
     nat_addr: String,
     #[serde(deserialize_with = "validate_port")]
@@ -64,17 +66,24 @@ struct Network {
     p2p_port: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct Chains {
     eth_rpc: String,
     gno_rpc: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct Storage {
     volumes_parent: String,
     volume_name: String,
     node_qty_per_volume: u8
+}
+
+pub async fn parse_config() -> Config {
+    let mut file = File::open("config.toml").await.expect("Failed to open config file");
+    let mut content = String::new();
+    file.read_to_string(&mut content).await.expect("Failed to read config file");
+    toml::from_str(&content).expect("Failed to parse config file")
 }
 
 #[cfg(test)]
