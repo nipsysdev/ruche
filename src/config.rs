@@ -1,6 +1,6 @@
 use regex::Regex;
-use serde::{Deserialize, Deserializer};
 use serde::de::{Error, Visitor};
+use serde::{Deserialize, Deserializer};
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
@@ -10,7 +10,7 @@ fn validate_port<'de, D>(deserializer: D) -> Result<String, D::Error>
 where
     D: Deserializer<'de>,
 {
-    struct RegexVisitor (&'static str);
+    struct RegexVisitor(&'static str);
 
     impl RegexVisitor {
         fn new(pattern: &'static str) -> Self {
@@ -26,20 +26,20 @@ where
         }
 
         fn visit_str<E: Error>(self, value: &str) -> Result<Self::Value, E> {
-            let regex = Regex::new(self.0)
-                .map_err(|_| E::custom("Invalid regex pattern"))?;
+            let regex = Regex::new(self.0).map_err(|_| E::custom("Invalid regex pattern"))?;
 
             if regex.is_match(value) {
                 Ok(value.to_string())
             } else {
-                Err(E::custom(format!("Value '{}' doesn't match pattern: {}", value, self.0)))
+                Err(E::custom(format!(
+                    "Value '{}' doesn't match pattern: {}",
+                    value, self.0
+                )))
             }
         }
     }
 
-    deserializer.deserialize_string(
-        RegexVisitor::new(PORT_REGEX)
-    )
+    deserializer.deserialize_string(RegexVisitor::new(PORT_REGEX))
 }
 
 #[derive(Deserialize, Clone)]
@@ -47,7 +47,20 @@ pub struct Config {
     bee: Bee,
     network: Network,
     chains: Chains,
-    storage: Storage
+    storage: Storage,
+}
+
+impl Config {
+    pub async fn parse() -> Self {
+        let mut file = File::open("config.toml")
+            .await
+            .expect("Failed to open config file");
+        let mut content = String::new();
+        file.read_to_string(&mut content)
+            .await
+            .expect("Failed to read config file");
+        toml::from_str(&content).expect("Failed to parse config file")
+    }
 }
 
 #[derive(Deserialize, Clone)]
@@ -76,14 +89,7 @@ struct Chains {
 struct Storage {
     volumes_parent: String,
     volume_name: String,
-    node_qty_per_volume: u8
-}
-
-pub async fn parse_config() -> Config {
-    let mut file = File::open("config.toml").await.expect("Failed to open config file");
-    let mut content = String::new();
-    file.read_to_string(&mut content).await.expect("Failed to read config file");
-    toml::from_str(&content).expect("Failed to parse config file")
+    node_qty_per_volume: u8,
 }
 
 #[cfg(test)]

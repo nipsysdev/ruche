@@ -1,7 +1,7 @@
-mod models;
+mod config;
 mod services;
 
-use crate::models::config::{parse_config, Config};
+use crate::config::Config;
 use crate::services::db_service::DbService;
 use crate::services::docker_service::DockerService;
 use axum::{routing::get, Router};
@@ -32,7 +32,7 @@ async fn main() {
                 .compression(),
         )
         .with_state(AppState {
-            config: parse_config().await,
+            config: Config::parse().await,
             db_service: DbService::new(),
             docker_service: DockerService::new(),
         });
