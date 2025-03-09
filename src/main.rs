@@ -3,6 +3,7 @@ mod services;
 
 use crate::models::config::{parse_config, Config};
 use crate::services::db_service::DbService;
+use crate::services::docker_service::DockerService;
 use axum::{routing::get, Router};
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -15,6 +16,7 @@ use tower_http::ServiceBuilderExt;
 struct AppState {
     config: Config,
     db_service: DbService,
+    docker_service: DockerService,
 }
 
 #[tokio::main]
@@ -32,6 +34,7 @@ async fn main() {
         .with_state(AppState {
             config: parse_config().await,
             db_service: DbService::new(),
+            docker_service: DockerService::new(),
         });
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
