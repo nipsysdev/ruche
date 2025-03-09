@@ -8,7 +8,7 @@ pub struct DbService {
 }
 
 impl DbService {
-    pub fn init() -> Self {
+    pub fn new() -> Self {
         let db = Database::open_path("ruche.db").expect("Failed to open database");
         DbService {
             db: Arc::new(RwLock::new(db))

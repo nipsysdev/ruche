@@ -31,7 +31,7 @@ async fn main() {
         )
         .with_state(AppState {
             config: parse_config().await,
-            db_service: DbService::init(),
+            db_service: DbService::new(),
         });
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
