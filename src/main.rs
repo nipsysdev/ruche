@@ -1,3 +1,4 @@
+mod bee;
 mod config;
 mod services;
 
