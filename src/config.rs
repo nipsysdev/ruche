@@ -1,10 +1,9 @@
+use crate::utils::regex::PORT_REGEX;
 use regex::Regex;
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer};
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
-
-const PORT_REGEX: &str = r"^\d{1,3}xx$";
 
 fn validate_port<'de, D>(deserializer: D) -> Result<String, D::Error>
 where

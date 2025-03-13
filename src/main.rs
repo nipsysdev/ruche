@@ -1,6 +1,7 @@
 mod bee;
 mod config;
 mod services;
+mod utils;
 
 use crate::config::Config;
 use crate::services::db_service::DbService;

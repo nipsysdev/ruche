@@ -1,5 +1,7 @@
 use crate::services::db_service::BeeDatabase;
+use crate::utils::regex::PORT_REGEX;
 use anyhow::{anyhow, Result};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -16,6 +18,15 @@ impl Bee {
 
     pub fn get_name(id: u8) -> String {
         format!("node_{}", Self::format_id(id))
+    }
+
+    pub fn get_port(id: u8, base_port: &str) -> Result<String> {
+        let re = Regex::new(PORT_REGEX)?;
+        if !re.is_match(base_port) {
+            return Err(anyhow!(""));
+        }
+
+        Ok(base_port.replace("xx", Self::format_id(id).as_str()))
     }
 
     pub async fn create(db: &dyn BeeDatabase) -> Result<Bee> {
@@ -46,7 +57,7 @@ impl Bee {
     }
 
     pub fn name(&self) -> String {
-        format!("node_{}", Self::format_id(self.id))
+        Self::get_name(self.id)
     }
 }
 
@@ -56,21 +67,42 @@ mod tests {
     use crate::services::db_service::MockDbService;
 
     #[tokio::test]
-    async fn test_format_id() {
+    async fn should_format_id() {
         assert_eq!(Bee::format_id(5), "05");
         assert_eq!(Bee::format_id(40), "40");
         assert_eq!(Bee::format_id(99), "99");
     }
 
     #[tokio::test]
-    async fn test_get_name() {
+    async fn should_return_name_from_id() {
         let bee = Bee {
             id: 5,
             neighborhood: String::new(),
             reserve_doubling: false,
         };
 
+        assert_eq!(Bee::get_name(5), "node_05");
         assert_eq!(bee.name(), "node_05");
+    }
+
+    #[tokio::test]
+    async fn should_return_port_from_id_and_base_port() {
+        let id = 5;
+        let base_port = "17xx";
+        let expected_port = "1705";
+
+        let port = Bee::get_port(id, base_port).unwrap();
+
+        assert_eq!(port, expected_port);
+    }
+
+    #[tokio::test]
+    async fn should_fail_to_return_port_from_invalid_base_port() {
+        assert!(Bee::get_port(5, "1705").is_err());
+        assert!(Bee::get_port(5, "test").is_err());
+        assert!(Bee::get_port(5, "1x70").is_err());
+        assert!(Bee::get_port(5, "1xx0").is_err());
+        assert!(Bee::get_port(5, "15340xx").is_err());
     }
 
     #[tokio::test]
