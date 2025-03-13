@@ -1,5 +1,5 @@
 [bee]
-image = "ethersphere/bee:2.3.2"
+image = "ethersphere/bee:2.5.0"
 password_path = "/var/lib/bee/password"
 welcome_msg = "Hello, Swarm!"
 
