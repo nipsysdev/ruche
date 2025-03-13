@@ -1,5 +1,5 @@
 use crate::services::db_service::BeeDatabase;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -21,7 +21,7 @@ impl Bee {
     pub async fn create(db: &dyn BeeDatabase) -> Result<Bee> {
         let count = db.count_bees().await?;
         if count >= 99 {
-            // todo: error too many bees
+            return Err(anyhow!("max capacity reached"));
         }
         let bees = db.get_bees().await?;
         let mut available_ids = (1..99).collect::<Vec<u8>>();
@@ -32,7 +32,7 @@ impl Bee {
 
         let new_id = available_ids
             .first()
-            .ok_or(anyhow::anyhow!("No id to use"))?;
+            .ok_or(anyhow::anyhow!("Unable to get new bee id"))?;
 
         // todo: continue implementation
 
@@ -58,7 +58,8 @@ mod tests {
     #[tokio::test]
     async fn test_format_id() {
         assert_eq!(Bee::format_id(5), "05");
-        assert_eq!(Bee::format_id(99), "99"); // since u8 can't be over 255, but the function accepts any u8
+        assert_eq!(Bee::format_id(40), "40");
+        assert_eq!(Bee::format_id(99), "99");
     }
 
     #[tokio::test]
@@ -68,20 +69,22 @@ mod tests {
             neighborhood: String::new(),
             reserve_doubling: false,
         };
+
         assert_eq!(bee.name(), "node_05");
     }
 
     #[tokio::test]
-    async fn test_create_first_bee() {
+    async fn should_create_first_bee() {
         let mock = MockDbService::default();
 
         let new_bee = Bee::create(&mock).await.unwrap();
+
         assert_eq!(new_bee.id, 1);
         assert_eq!(mock.count_bees().await.unwrap(), 1);
     }
 
     #[tokio::test]
-    async fn test_create_with_existing_ids() {
+    async fn should_add_additional_bee() {
         let mock = MockDbService::default();
 
         mock.add_bee(Bee {
@@ -93,7 +96,7 @@ mod tests {
         .unwrap();
 
         mock.add_bee(Bee {
-            id: 3,
+            id: 2,
             neighborhood: String::new(),
             reserve_doubling: false,
         })
@@ -101,29 +104,13 @@ mod tests {
         .unwrap();
 
         let new_bee = Bee::create(&mock).await.unwrap();
-        assert_eq!(new_bee.id, 2);
+
+        assert_eq!(new_bee.id, 3);
         assert_eq!(mock.count_bees().await.unwrap(), 3);
     }
 
     #[tokio::test]
-    async fn test_create_no_available_id() {
-        let mock = MockDbService::default();
-
-        for id in 1..99 {
-            mock.add_bee(Bee {
-                id,
-                neighborhood: String::new(),
-                reserve_doubling: false,
-            })
-            .await
-            .unwrap();
-        }
-        let result = Bee::create(&mock).await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_create_all_ids_taken() {
+    async fn should_fail_creating_when_max_capacity_reached() {
         let mock = MockDbService::default();
 
         for id in 1..=99 {
@@ -135,12 +122,14 @@ mod tests {
             .await
             .unwrap();
         }
+
         let result = Bee::create(&mock).await;
+
         assert!(result.is_err());
     }
 
     #[tokio::test]
-    async fn test_create_with_available_gap() {
+    async fn should_pick_first_available_id() {
         let mock = MockDbService::default();
 
         mock.add_bee(Bee {
@@ -159,7 +148,8 @@ mod tests {
         .unwrap();
 
         let new_bee = Bee::create(&mock).await.unwrap();
-        assert_eq!(new_bee.id, 2); // Should pick the first missing ID
+
+        assert_eq!(new_bee.id, 2);
         assert_eq!(mock.count_bees().await.unwrap(), 3);
     }
 }
