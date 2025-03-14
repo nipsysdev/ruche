@@ -3,6 +3,7 @@ use crate::utils::regex::PORT_REGEX;
 use anyhow::{anyhow, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::env;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct Bee {
@@ -12,6 +13,9 @@ pub struct Bee {
 }
 
 impl Bee {
+    const NEIGHBORHOOD_API_URL: &'static str =
+        "https://api.swarmscan.io/v1/network/neighborhoods/suggestion";
+
     pub fn format_id(id: u8) -> String {
         format!("{:02}", id)
     }
@@ -27,6 +31,22 @@ impl Bee {
         }
 
         Ok(base_port.replace("xx", Self::format_id(id).as_str()))
+    }
+
+    pub async fn get_neighborhood() -> Result<String> {
+        let url = env::var("NEIGHBORHOOD_API_URL")
+            .unwrap_or_else(|_| Bee::NEIGHBORHOOD_API_URL.to_string());
+
+        Ok(reqwest::get(url)
+            .await?
+            .error_for_status()?
+            .json::<serde_json::Value>()
+            .await?
+            .get("neighborhood")
+            .ok_or(anyhow!("Missing 'neighborhood' field"))?
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("Invalid 'neighborhood' field"))?
+            .to_string())
     }
 
     pub async fn create(db: &dyn BeeDatabase) -> Result<Bee> {
@@ -65,6 +85,9 @@ impl Bee {
 mod tests {
     use super::*;
     use crate::services::db_service::MockDbService;
+    use serde_json::json;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[tokio::test]
     async fn should_format_id() {
@@ -103,6 +126,64 @@ mod tests {
         assert!(Bee::get_port(5, "1x70").is_err());
         assert!(Bee::get_port(5, "1xx0").is_err());
         assert!(Bee::get_port(5, "15340xx").is_err());
+    }
+
+    #[tokio::test]
+    async fn should_return_neighborhood_from_response() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/v1/network/neighborhoods/suggestion"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "neighborhood": "11111111111"
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let url = format!("{}/v1/network/neighborhoods/suggestion", mock_server.uri());
+        env::set_var("NEIGHBORHOOD_API_URL", url);
+
+        let result = Bee::get_neighborhood().await.unwrap();
+
+        assert_eq!(result, "11111111111");
+    }
+
+    #[tokio::test]
+    async fn should_throw_error_when_neighborhood_field_is_missing() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(&mock_server)
+            .await;
+
+        let url = format!("{}/v1/network/neighborhoods/suggestion", mock_server.uri());
+        env::set_var("NEIGHBORHOOD_API_URL", url);
+
+        let result = Bee::get_neighborhood().await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Missing 'neighborhood' field"
+        );
+    }
+
+    #[tokio::test]
+    async fn should_throw_error_when_http_failure() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&mock_server)
+            .await;
+
+        let url = format!("{}/v1/network/neighborhoods/suggestion", mock_server.uri());
+        env::set_var("NEIGHBORHOOD_API_URL", url);
+
+        let result = Bee::get_neighborhood().await;
+
+        assert!(result.is_err());
     }
 
     #[tokio::test]
