@@ -1,9 +1,12 @@
 use crate::services::db_service::BeeDatabase;
-use crate::utils::regex::PORT_REGEX;
+use crate::utils::regex::{PORT_REGEX, VOLUME_NAME_REGEX};
 use anyhow::{anyhow, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::env;
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
+use tokio::fs;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct Bee {
@@ -27,10 +30,10 @@ impl Bee {
     pub fn get_port(id: u8, base_port: &str) -> Result<String> {
         let re = Regex::new(PORT_REGEX)?;
         if !re.is_match(base_port) {
-            return Err(anyhow!(""));
+            return Err(anyhow!("Invalid base port '{}'", base_port));
         }
 
-        Ok(base_port.replace("xx", Self::format_id(id).as_str()))
+        Ok(base_port.replace("xx", &Self::format_id(id)))
     }
 
     pub async fn get_neighborhood() -> Result<String> {
@@ -49,10 +52,63 @@ impl Bee {
             .to_string())
     }
 
+    pub fn get_dir_id(bee_id: u8, dir_capacity: u8) -> u8 {
+        ((bee_id - 1) / dir_capacity) + 1
+    }
+
+    pub fn get_dir_name(bee_id: u8, dir_name_format: &str, dir_capacity: u8) -> Result<String> {
+        let re = Regex::new(VOLUME_NAME_REGEX)?;
+        if !re.is_match(dir_name_format) {
+            return Err(anyhow!("Invalid volume name format '{}'", dir_name_format));
+        }
+
+        Ok(dir_name_format.replace(
+            "xx",
+            &Self::format_id(Self::get_dir_id(bee_id, dir_capacity)),
+        ))
+    }
+
+    pub async fn create_node_dir(
+        id: u8,
+        base_path: &str,
+        dir_name_format: &str,
+        dir_capacity: u8,
+    ) -> Result<PathBuf> {
+        let dir_name = Self::get_dir_name(id, dir_name_format, dir_capacity)?;
+        let dir_path = Path::new(base_path).join(dir_name);
+
+        if dir_path.exists() {
+            return Err(anyhow!("Directory '{}' already exists", dir_path.display()));
+        }
+
+        fs::create_dir_all(&dir_path).await?;
+
+        // Could it work without this?
+        /*let bee_uid = User::from_name("bee")?
+            .map(|user| user.uid)
+            .ok_or(anyhow!("Missing bee user"))?;
+
+        let systemd_journal_gid = Group::from_name("systemd-journal")?
+            .map(|group| group.gid)
+            .ok_or(anyhow!("Missing systemd-journal group"))?;
+
+        chown(
+            &dir_path,
+            Some(u32::from(bee_uid)),
+            Some(u32::from(systemd_journal_gid)),
+        )?;*/
+
+        let mut perms = fs::metadata(&dir_path).await?.permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&dir_path, perms).await?;
+
+        Ok(dir_path)
+    }
+
     pub async fn create(db: &dyn BeeDatabase) -> Result<Bee> {
         let count = db.count_bees().await?;
         if count >= 99 {
-            return Err(anyhow!("max capacity reached"));
+            return Err(anyhow!("Max capacity reached"));
         }
         let bees = db.get_bees().await?;
         let mut available_ids = (1..99).collect::<Vec<u8>>();
@@ -184,6 +240,116 @@ mod tests {
         let result = Bee::get_neighborhood().await;
 
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn should_calculate_directory_id_correctly() {
+        assert_eq!(Bee::get_dir_id(1, 4), 1);
+        assert_eq!(Bee::get_dir_id(4, 4), 1);
+        assert_eq!(Bee::get_dir_id(5, 4), 2);
+        assert_eq!(Bee::get_dir_id(8, 4), 2);
+        assert_eq!(Bee::get_dir_id(9, 4), 3);
+        assert_eq!(Bee::get_dir_id(99, 4), 25);
+
+        assert_eq!(Bee::get_dir_id(3, 3), 1);
+        assert_eq!(Bee::get_dir_id(4, 3), 2);
+        assert_eq!(Bee::get_dir_id(6, 3), 2);
+        assert_eq!(Bee::get_dir_id(7, 3), 3);
+
+        assert_eq!(Bee::get_dir_id(5, 5), 1);
+        assert_eq!(Bee::get_dir_id(6, 5), 2);
+    }
+
+    #[tokio::test]
+    async fn should_generate_directory_name_correctly() {
+        let dir_name_format = "node_xx";
+        let dir_capacity = 4;
+
+        assert_eq!(
+            Bee::get_dir_name(1, dir_name_format, dir_capacity).unwrap(),
+            "node_01"
+        );
+
+        assert_eq!(
+            Bee::get_dir_name(5, dir_name_format, dir_capacity).unwrap(),
+            "node_02"
+        );
+
+        assert_eq!(
+            Bee::get_dir_name(9, dir_name_format, dir_capacity).unwrap(),
+            "node_03"
+        );
+
+        let dir_capacity_3 = 3;
+        assert_eq!(
+            Bee::get_dir_name(4, dir_name_format, dir_capacity_3).unwrap(),
+            "node_02"
+        );
+    }
+
+    #[tokio::test]
+    async fn should_return_error_for_invalid_volume_name_format() {
+        let invalid_format = "node_x";
+        let dir_capacity = 4;
+
+        let result = Bee::get_dir_name(1, invalid_format, dir_capacity);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Invalid volume name format 'node_x'"
+        );
+    }
+
+    #[tokio::test]
+    async fn should_create_node_dir_successfully() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let base_path = temp_dir.path().to_str().unwrap();
+        let dir_name_format = "node_xx";
+        let dir_capacity = 4;
+        let bee_id = 1;
+
+        let result = Bee::create_node_dir(bee_id, base_path, dir_name_format, dir_capacity).await;
+
+        assert!(result.is_ok());
+        let dir_path = result.unwrap();
+
+        assert!(dir_path.exists());
+        assert_eq!(dir_path.file_name().unwrap().to_str().unwrap(), "node_01");
+
+        let metadata = tokio::fs::metadata(&dir_path).await.unwrap();
+        assert_eq!(metadata.permissions().mode() & 0o777, 0o755);
+    }
+
+    #[tokio::test]
+    async fn should_fail_to_create_node_dir_if_dir_already_exists() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let base_path = temp_dir.path().to_str().unwrap();
+        let existing_dir_name = "node_01";
+        let existing_path = temp_dir.path().join(existing_dir_name);
+
+        tokio::fs::create_dir_all(&existing_path).await.unwrap();
+
+        let result = Bee::create_node_dir(1, base_path, "node_xx", 4).await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!("Directory '{}' already exists", existing_path.display())
+        );
+    }
+
+    #[tokio::test]
+    async fn should_fail_to_create_node_dir_if_invalid_dir_format() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let base_path = temp_dir.path().to_str().unwrap();
+
+        let result = Bee::create_node_dir(1, base_path, "node_x", 4).await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Invalid volume name format 'node_x'"
+        );
     }
 
     #[tokio::test]

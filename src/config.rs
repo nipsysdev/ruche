@@ -1,6 +1,4 @@
-use crate::utils::regex::PORT_REGEX;
-use regex::Regex;
-use serde::de::{Error, Visitor};
+use crate::utils::regex::{RegexVisitor, PORT_REGEX, VOLUME_NAME_REGEX};
 use serde::{Deserialize, Deserializer};
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
@@ -9,36 +7,14 @@ fn validate_port<'de, D>(deserializer: D) -> Result<String, D::Error>
 where
     D: Deserializer<'de>,
 {
-    struct RegexVisitor(&'static str);
-
-    impl RegexVisitor {
-        fn new(pattern: &'static str) -> Self {
-            Self(pattern)
-        }
-    }
-
-    impl<'de> Visitor<'de> for RegexVisitor {
-        type Value = String;
-
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-            write!(formatter, "a string matching pattern: {}", self.0)
-        }
-
-        fn visit_str<E: Error>(self, value: &str) -> Result<Self::Value, E> {
-            let regex = Regex::new(self.0).map_err(|_| E::custom("Invalid regex pattern"))?;
-
-            if regex.is_match(value) {
-                Ok(value.to_string())
-            } else {
-                Err(E::custom(format!(
-                    "Value '{}' doesn't match pattern: {}",
-                    value, self.0
-                )))
-            }
-        }
-    }
-
     deserializer.deserialize_string(RegexVisitor::new(PORT_REGEX))
+}
+
+fn validate_volume_name<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_string(RegexVisitor::new(VOLUME_NAME_REGEX))
 }
 
 #[derive(Deserialize, Clone)]
@@ -87,6 +63,7 @@ struct Chains {
 #[derive(Deserialize, Clone)]
 struct Storage {
     volumes_parent: String,
+    #[serde(deserialize_with = "validate_volume_name")]
     volume_name: String,
     node_qty_per_volume: u8,
 }
