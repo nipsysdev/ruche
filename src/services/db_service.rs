@@ -1,20 +1,20 @@
-use crate::bee::Bee;
+use crate::models::BeeData;
 use anyhow::Error;
 use anyhow::Result;
 use async_trait::async_trait;
+use dyn_clone::DynClone;
 use polodb_core::bson::doc;
-use polodb_core::{Collection, CollectionT, Database};
-use std::collections::VecDeque;
+use polodb_core::{ClientCursor, Collection, CollectionT, Database};
 use std::sync::Arc;
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-
 #[async_trait]
-pub trait BeeDatabase {
-    async fn add_bee(&self, bee: Bee) -> Result<()>;
-    async fn add_bees(&self, bees: Vec<Bee>) -> Result<()>;
+pub trait BeeDatabase: DynClone + Send + Sync {
+    async fn add_bee(&self, bee: BeeData) -> Result<()>;
+    async fn add_bees(&self, bees: Vec<BeeData>) -> Result<()>;
     async fn count_bees(&self) -> Result<u64>;
-    async fn get_bees(&self) -> Result<Vec<Bee>>;
+    async fn get_bees(&self) -> Result<ClientCursor<BeeData>>;
 }
+
+use tokio::sync::RwLock;
 
 #[derive(Clone)]
 pub struct DbService {
@@ -29,24 +29,24 @@ impl DbService {
         }
     }
 
-    async fn get_bees_col_write(&self) -> Collection<Bee> {
-        self.db.write().await.collection::<Bee>("bees")
+    async fn get_bees_col_write(&self) -> Collection<BeeData> {
+        self.db.write().await.collection::<BeeData>("bees")
     }
 
-    async fn get_bees_col_read(&self) -> Collection<Bee> {
-        self.db.read().await.collection::<Bee>("bees")
+    async fn get_bees_col_read(&self) -> Collection<BeeData> {
+        self.db.read().await.collection::<BeeData>("bees")
     }
 }
 
 #[async_trait]
 impl BeeDatabase for DbService {
-    async fn add_bee(&self, bee: Bee) -> Result<()> {
+    async fn add_bee(&self, bee: BeeData) -> Result<()> {
         let collection = self.get_bees_col_write().await;
         collection.insert_one(bee)?;
         Ok(())
     }
 
-    async fn add_bees(&self, bees: Vec<Bee>) -> Result<()> {
+    async fn add_bees(&self, bees: Vec<BeeData>) -> Result<()> {
         let collection = self.get_bees_col_write().await;
         collection.insert_many(bees)?;
         Ok(())
@@ -57,7 +57,7 @@ impl BeeDatabase for DbService {
         collection.count_documents().map_err(Error::from)
     }
 
-    async fn get_bees(&self) -> Result<Vec<Bee>> {
+    async fn get_bees(&self) -> Result<ClientCursor<BeeData>> {
         let collection = self.get_bees_col_read().await;
         let cursor = collection
             .find(doc! {})
@@ -66,40 +66,34 @@ impl BeeDatabase for DbService {
             })
             .run()
             .map_err(Error::from)?;
-
-        let mut bees = Vec::new();
-        for result in cursor {
-            let bee = result.map_err(Error::from)?;
-            bees.push(bee);
-        }
-        Ok(bees)
+        Ok(cursor)
     }
 }
 
-#[derive(Default, Clone)]
+/*#[derive(Default, Clone)]
 pub struct MockDbService {
-    db: Arc<RwLock<VecDeque<Bee>>>,
+    db: Arc<RwLock<VecDeque<BeeData>>>,
 }
 
 impl MockDbService {
-    async fn get_bees_col_write(&self) -> RwLockWriteGuard<'_, VecDeque<Bee>> {
+    async fn get_bees_col_write(&self) -> RwLockWriteGuard<'_, VecDeque<BeeData>> {
         self.db.write().await
     }
 
-    async fn get_bees_col_read(&self) -> RwLockReadGuard<'_, VecDeque<Bee>> {
+    async fn get_bees_col_read(&self) -> RwLockReadGuard<'_, VecDeque<BeeData>> {
         self.db.read().await
     }
 }
 
 #[async_trait]
 impl BeeDatabase for MockDbService {
-    async fn add_bee(&self, bee: Bee) -> Result<()> {
+    async fn add_bee(&self, bee: BeeData) -> Result<()> {
         let mut queue = self.get_bees_col_write().await;
         queue.push_back(bee);
         Ok(())
     }
 
-    async fn add_bees(&self, bees: Vec<Bee>) -> Result<()> {
+    async fn add_bees(&self, bees: Vec<BeeData>) -> Result<()> {
         let mut queue = self.get_bees_col_write().await;
         queue.extend(bees);
         Ok(())
@@ -110,8 +104,9 @@ impl BeeDatabase for MockDbService {
         Ok(queue.len() as u64)
     }
 
-    async fn get_bees(&self) -> Result<Vec<Bee>> {
+    async fn get_bees(&self) -> Result<Vec<BeeData>> {
         let queue = self.get_bees_col_read().await;
         Ok(queue.clone().make_contiguous().to_vec())
     }
 }
+*/

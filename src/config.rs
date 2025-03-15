@@ -19,10 +19,10 @@ where
 
 #[derive(Deserialize, Clone)]
 pub struct Config {
-    bee: Bee,
-    network: Network,
-    chains: Chains,
-    storage: Storage,
+    pub bee: Bee,
+    pub network: Network,
+    pub chains: Chains,
+    pub storage: Storage,
 }
 
 impl Config {
@@ -39,33 +39,33 @@ impl Config {
 }
 
 #[derive(Deserialize, Clone)]
-struct Bee {
-    image: String,
-    password_path: String,
-    welcome_msg: String,
+pub struct Bee {
+    pub image: String,
+    pub password_path: String,
+    pub welcome_msg: String,
 }
 
 #[derive(Deserialize, Clone)]
-struct Network {
-    nat_addr: String,
+pub struct Network {
+    pub nat_addr: String,
     #[serde(deserialize_with = "validate_port")]
-    api_port: String,
+    pub api_port: String,
     #[serde(deserialize_with = "validate_port")]
-    p2p_port: String,
+    pub p2p_port: String,
 }
 
 #[derive(Deserialize, Clone)]
-struct Chains {
-    eth_rpc: String,
-    gno_rpc: String,
+pub struct Chains {
+    pub eth_rpc: String,
+    pub gno_rpc: String,
 }
 
 #[derive(Deserialize, Clone)]
-struct Storage {
-    volumes_parent: String,
+pub struct Storage {
+    pub volumes_parent: String,
     #[serde(deserialize_with = "validate_volume_name")]
-    volume_name: String,
-    node_qty_per_volume: u8,
+    pub volume_name: String,
+    pub node_qty_per_volume: u8,
 }
 
 #[cfg(test)]
