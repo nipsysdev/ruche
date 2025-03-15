@@ -139,6 +139,11 @@ impl BeeService {
         }
         Ok(bees)
     }
+
+    pub async fn delete_bee(&self, bee_id: u8) -> Result<()> {
+        self.db.delete_bee(bee_id).await?;
+        Ok(())
+    }
 }
 
 /*#[cfg(test)]

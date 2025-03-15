@@ -2,10 +2,10 @@ use crate::models::BeeData;
 use crate::services::db_service::BeeDatabase;
 use crate::AppState;
 use anyhow::Error;
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use serde::Serialize;
 use std::sync::Arc;
@@ -33,6 +33,7 @@ pub fn init_bees_handler(app_state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", post(create_bee))
         .route("/", get(get_bees))
+        .route("/{bee_id}", delete(delete_bee))
         .with_state(app_state)
 }
 
@@ -52,5 +53,16 @@ async fn get_bees(State(state): State<Arc<AppState>>) -> Result<Json<Vec<BeeData
         .get_bees()
         .await
         .map(Json)
+        .map_err(Into::into)
+}
+
+async fn delete_bee(
+    Path(bee_id): Path<u8>,
+    State(state): State<Arc<AppState>>,
+) -> Result<(), CustomError> {
+    state
+        .bee_service
+        .delete_bee(bee_id)
+        .await
         .map_err(Into::into)
 }

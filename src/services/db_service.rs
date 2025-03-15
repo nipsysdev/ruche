@@ -6,12 +6,14 @@ use dyn_clone::DynClone;
 use polodb_core::bson::doc;
 use polodb_core::{ClientCursor, Collection, CollectionT, Database};
 use std::sync::Arc;
+
 #[async_trait]
 pub trait BeeDatabase: DynClone + Send + Sync {
     async fn add_bee(&self, bee: BeeData) -> Result<()>;
     async fn add_bees(&self, bees: Vec<BeeData>) -> Result<()>;
     async fn count_bees(&self) -> Result<u64>;
     async fn get_bees(&self) -> Result<ClientCursor<BeeData>>;
+    async fn delete_bee(&self, bee_id: u8) -> Result<()>;
 }
 
 use tokio::sync::RwLock;
@@ -67,6 +69,16 @@ impl BeeDatabase for DbService {
             .run()
             .map_err(Error::from)?;
         Ok(cursor)
+    }
+
+    async fn delete_bee(&self, bee_id: u8) -> Result<()> {
+        let collection = self.get_bees_col_write().await;
+        let query = doc! {"id": bee_id as i32};
+        if (collection.find_one(query.clone())?.is_none()) {
+            return Err(anyhow::anyhow!("No bee node found with id {}", bee_id));
+        }
+        collection.delete_one(query)?;
+        Ok(())
     }
 }
 
