@@ -30,7 +30,7 @@ impl IntoResponse for CustomError {
     }
 }
 
-pub fn init_bees_handler(app_state: Arc<AppState>) -> Router {
+pub fn init_bee_handlers(app_state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", post(create_bee))
         .route("/", get(get_bees))

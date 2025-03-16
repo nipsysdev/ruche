@@ -6,7 +6,7 @@ mod services;
 mod utils;
 
 use crate::config::Config;
-use crate::handlers::bees_handler::init_bees_handler;
+use crate::handlers::bee_handlers::init_bee_handlers;
 use crate::services::bee_service::BeeService;
 use crate::services::db_service::DbService;
 use axum::Router;
@@ -40,7 +40,7 @@ async fn main() {
     });
 
     let app = Router::new()
-        .nest("/bees", init_bees_handler(app_state.clone()))
+        .nest("/bees", init_bee_handlers(app_state.clone()))
         .layer(
             ServiceBuilder::new()
                 .layer(TraceLayer::new_for_http())
