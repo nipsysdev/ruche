@@ -130,6 +130,10 @@ impl BeeService {
         Ok(bee)
     }
 
+    pub async fn get_bee(&self, bee_id: u8) -> Result<Option<BeeData>> {
+        self.db.get_bee(bee_id).await
+    }
+
     pub async fn get_bees(&self) -> Result<Vec<BeeData>> {
         let cursor = self.db.get_bees().await?;
         let mut bees = Vec::new();

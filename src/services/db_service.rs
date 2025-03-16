@@ -12,6 +12,7 @@ pub trait BeeDatabase: DynClone + Send + Sync {
     async fn add_bee(&self, bee: BeeData) -> Result<()>;
     async fn add_bees(&self, bees: Vec<BeeData>) -> Result<()>;
     async fn count_bees(&self) -> Result<u64>;
+    async fn get_bee(&self, bee_id: u8) -> Result<Option<BeeData>>;
     async fn get_bees(&self) -> Result<ClientCursor<BeeData>>;
     async fn delete_bee(&self, bee_id: u8) -> Result<()>;
 }
@@ -59,6 +60,12 @@ impl BeeDatabase for DbService {
         collection.count_documents().map_err(Error::from)
     }
 
+    async fn get_bee(&self, bee_id: u8) -> Result<Option<BeeData>> {
+        let collection = self.get_bees_col_read().await;
+        let result = collection.find_one(doc! {"id": bee_id as i32})?;
+        Ok(result)
+    }
+
     async fn get_bees(&self) -> Result<ClientCursor<BeeData>> {
         let collection = self.get_bees_col_read().await;
         let cursor = collection
@@ -73,11 +80,7 @@ impl BeeDatabase for DbService {
 
     async fn delete_bee(&self, bee_id: u8) -> Result<()> {
         let collection = self.get_bees_col_write().await;
-        let query = doc! {"id": bee_id as i32};
-        if (collection.find_one(query.clone())?.is_none()) {
-            return Err(anyhow::anyhow!("No bee node found with id {}", bee_id));
-        }
-        collection.delete_one(query)?;
+        collection.delete_one(doc! {"id": bee_id as i32})?;
         Ok(())
     }
 }

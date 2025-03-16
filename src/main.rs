@@ -1,5 +1,6 @@
 mod config;
 mod constants;
+mod error;
 mod handlers;
 mod models;
 mod services;
