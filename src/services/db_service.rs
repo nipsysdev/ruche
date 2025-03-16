@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use dyn_clone::DynClone;
 use polodb_core::bson::doc;
 use polodb_core::{ClientCursor, Collection, CollectionT, Database};
+use std::collections::VecDeque;
 use std::sync::Arc;
 
 #[async_trait]
@@ -13,11 +14,11 @@ pub trait BeeDatabase: DynClone + Send + Sync {
     async fn add_bees(&self, bees: Vec<BeeData>) -> Result<()>;
     async fn count_bees(&self) -> Result<u64>;
     async fn get_bee(&self, bee_id: u8) -> Result<Option<BeeData>>;
-    async fn get_bees(&self) -> Result<ClientCursor<BeeData>>;
+    async fn get_bees(&self) -> Result<Vec<BeeData>>;
     async fn delete_bee(&self, bee_id: u8) -> Result<()>;
 }
 
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 #[derive(Clone)]
 pub struct DbService {
@@ -66,7 +67,7 @@ impl BeeDatabase for DbService {
         Ok(result)
     }
 
-    async fn get_bees(&self) -> Result<ClientCursor<BeeData>> {
+    async fn get_bees(&self) -> Result<Vec<BeeData>> {
         let collection = self.get_bees_col_read().await;
         let cursor = collection
             .find(doc! {})
@@ -75,7 +76,12 @@ impl BeeDatabase for DbService {
             })
             .run()
             .map_err(Error::from)?;
-        Ok(cursor)
+        let mut bees = Vec::new();
+        for result in cursor {
+            let bee = result.map_err(Error::from)?;
+            bees.push(bee);
+        }
+        Ok(bees)
     }
 
     async fn delete_bee(&self, bee_id: u8) -> Result<()> {
@@ -85,7 +91,7 @@ impl BeeDatabase for DbService {
     }
 }
 
-/*#[derive(Default, Clone)]
+#[derive(Default, Clone)]
 pub struct MockDbService {
     db: Arc<RwLock<VecDeque<BeeData>>>,
 }
@@ -119,9 +125,19 @@ impl BeeDatabase for MockDbService {
         Ok(queue.len() as u64)
     }
 
+    async fn get_bee(&self, bee_id: u8) -> Result<Option<BeeData>> {
+        let queue = self.get_bees_col_read().await;
+        Ok(queue.get(bee_id as usize).cloned())
+    }
+
     async fn get_bees(&self) -> Result<Vec<BeeData>> {
         let queue = self.get_bees_col_read().await;
         Ok(queue.clone().make_contiguous().to_vec())
     }
+
+    async fn delete_bee(&self, bee_id: u8) -> Result<()> {
+        let mut queue = self.get_bees_col_write().await;
+        queue.retain(|bee| bee.id != bee_id);
+        Ok(())
+    }
 }
-*/

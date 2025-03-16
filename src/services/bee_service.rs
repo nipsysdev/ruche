@@ -135,13 +135,7 @@ impl BeeService {
     }
 
     pub async fn get_bees(&self) -> Result<Vec<BeeData>> {
-        let cursor = self.db.get_bees().await?;
-        let mut bees = Vec::new();
-        for result in cursor {
-            let bee = result.map_err(Error::from)?;
-            bees.push(bee);
-        }
-        Ok(bees)
+        self.db.get_bees().await
     }
 
     pub async fn delete_bee(&self, bee_id: u8) -> Result<()> {
@@ -150,11 +144,14 @@ impl BeeService {
     }
 }
 
-/*#[cfg(test)]
+#[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::Storage;
     use crate::services::db_service::MockDbService;
+    use bollard::container::StorageStats;
     use serde_json::json;
+    use tower::layer::util::Stack;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -250,50 +247,67 @@ mod tests {
 
     #[tokio::test]
     async fn should_calculate_directory_id_correctly() {
-        assert_eq!(BeeService::get_dir_id(1, 4), 1);
-        assert_eq!(BeeService::get_dir_id(4, 4), 1);
-        assert_eq!(BeeService::get_dir_id(5, 4), 2);
-        assert_eq!(BeeService::get_dir_id(8, 4), 2);
-        assert_eq!(BeeService::get_dir_id(9, 4), 3);
-        assert_eq!(BeeService::get_dir_id(99, 4), 25);
+        let mut config = Config::default();
 
-        assert_eq!(BeeService::get_dir_id(3, 3), 1);
-        assert_eq!(BeeService::get_dir_id(4, 3), 2);
-        assert_eq!(BeeService::get_dir_id(6, 3), 2);
-        assert_eq!(BeeService::get_dir_id(7, 3), 3);
+        config.storage.node_qty_per_volume = 4;
+        let mut bee_service = BeeService::new(config.clone(), Box::new(MockDbService::default()));
+        assert_eq!(bee_service.get_dir_id(1), 1);
+        assert_eq!(bee_service.get_dir_id(4), 1);
+        assert_eq!(bee_service.get_dir_id(5), 2);
+        assert_eq!(bee_service.get_dir_id(8), 2);
+        assert_eq!(bee_service.get_dir_id(9), 3);
+        assert_eq!(bee_service.get_dir_id(99), 25);
 
-        assert_eq!(BeeService::get_dir_id(5, 5), 1);
-        assert_eq!(BeeService::get_dir_id(6, 5), 2);
+        config.storage.node_qty_per_volume = 3;
+        bee_service = BeeService::new(config.clone(), Box::new(MockDbService::default()));
+        assert_eq!(bee_service.get_dir_id(3), 1);
+        assert_eq!(bee_service.get_dir_id(4), 2);
+        assert_eq!(bee_service.get_dir_id(6), 2);
+        assert_eq!(bee_service.get_dir_id(7), 3);
+
+        config.storage.node_qty_per_volume = 5;
+        bee_service = BeeService::new(config.clone(), Box::new(MockDbService::default()));
+        assert_eq!(bee_service.get_dir_id(5), 1);
+        assert_eq!(bee_service.get_dir_id(6), 2);
     }
 
     #[tokio::test]
     async fn should_generate_directory_name_correctly() {
-        let dir_name_format = "node_xx";
-        let dir_capacity = 4;
+        let mut config = Config {
+            storage: Storage {
+                volume_name: String::from("node_xx"),
+                node_qty_per_volume: 4,
+                ..Storage::default()
+            },
+            ..Config::default()
+        };
+
+        let mut bee_service = BeeService::new(config.clone(), Box::new(MockDbService::default()));
 
         assert_eq!(
-            BeeService::get_dir_name(1, dir_name_format, dir_capacity).unwrap(),
+            bee_service.get_dir_name(1).unwrap(),
             "node_01"
         );
 
         assert_eq!(
-            BeeService::get_dir_name(5, dir_name_format, dir_capacity).unwrap(),
+            bee_service.get_dir_name(5).unwrap(),
             "node_02"
         );
 
         assert_eq!(
-            BeeService::get_dir_name(9, dir_name_format, dir_capacity).unwrap(),
+            bee_service.get_dir_name(9).unwrap(),
             "node_03"
         );
 
-        let dir_capacity_3 = 3;
+        config.storage.node_qty_per_volume = 3;
+        bee_service = BeeService::new(config.clone(), Box::new(MockDbService::default()));
         assert_eq!(
-            BeeService::get_dir_name(4, dir_name_format, dir_capacity_3).unwrap(),
+            bee_service.get_dir_name(4).unwrap(),
             "node_02"
         );
     }
 
-    #[tokio::test]
+    /* #[tokio::test]
     async fn should_return_error_for_invalid_volume_name_format() {
         let invalid_format = "node_x";
         let dir_capacity = 4;
@@ -437,5 +451,5 @@ mod tests {
 
         assert_eq!(new_bee.id, 2);
         assert_eq!(mock.count_bees().await.unwrap(), 3);
-    }
-}*/
+    } */
+}

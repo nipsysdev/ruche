@@ -17,7 +17,7 @@ where
     deserializer.deserialize_string(RegexVisitor::new(VOLUME_NAME_REGEX))
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Default, Clone)]
 pub struct Config {
     pub bee: Bee,
     pub network: Network,
@@ -38,14 +38,14 @@ impl Config {
     }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Default, Clone)]
 pub struct Bee {
     pub image: String,
     pub password_path: String,
     pub welcome_msg: String,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Default, Clone)]
 pub struct Network {
     pub nat_addr: String,
     #[serde(deserialize_with = "validate_port")]
@@ -54,13 +54,13 @@ pub struct Network {
     pub p2p_port: String,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Default, Clone)]
 pub struct Chains {
     pub eth_rpc: String,
     pub gno_rpc: String,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Default, Clone)]
 pub struct Storage {
     pub volumes_parent: String,
     #[serde(deserialize_with = "validate_volume_name")]
