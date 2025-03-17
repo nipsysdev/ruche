@@ -156,6 +156,8 @@ impl BeeService {
     }
 
     pub async fn delete_bee(&self, bee_id: u8) -> Result<()> {
+        let node_path = self.get_node_path(bee_id)?;
+        fs::remove_dir_all(node_path).await?;
         self.db.delete_bee(bee_id).await?;
         Ok(())
     }
@@ -672,5 +674,41 @@ mod tests {
         let result = bee_service.save_bee(BeeData::default()).await;
 
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn should_delete_bee_with_nested_node_directory() {
+        let db = MockDbService::default();
+        let root_path = tempfile::tempdir().unwrap().path().to_path_buf();
+        let config = Config {
+            storage: Storage {
+                root_path: root_path.clone(),
+                parent_dir_format: "swarm_data_xx".to_string(),
+                parent_dir_capacity: 4,
+                ..Storage::default()
+            },
+            ..Config::default()
+        };
+        let bee_service = BeeService::new(config, Box::new(db.clone()));
+        let bee_id = 1;
+        db.add_bee(BeeData {
+            id: bee_id,
+            ..BeeData::default()
+        })
+        .await
+        .unwrap();
+        let node_path = bee_service.get_node_path(bee_id).unwrap();
+        tokio::fs::create_dir_all(&node_path).await.unwrap();
+        let nested_file_path = node_path.join("nested_file.txt");
+        tokio::fs::write(&nested_file_path, "test content")
+            .await
+            .unwrap();
+        assert!(nested_file_path.exists());
+
+        bee_service.delete_bee(bee_id).await.unwrap();
+
+        assert!(bee_service.get_bee(bee_id).await.unwrap().is_none());
+        assert!(!node_path.exists());
+        assert!(!nested_file_path.exists());
     }
 }
