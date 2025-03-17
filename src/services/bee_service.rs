@@ -1,6 +1,6 @@
-use crate::config::Config;
 use crate::constants::NEIGHBORHOOD_API_URL;
 use crate::models::bee::BeeData;
+use crate::models::config::Config;
 use crate::services::db_service::BeeDatabase;
 use crate::utils::regex::{PORT_REGEX, VOLUME_NAME_REGEX};
 use anyhow::{anyhow, Result};
@@ -156,7 +156,7 @@ impl BeeService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Storage;
+    use crate::models::config::Storage;
     use crate::services::db_service::MockDbService;
     use serde_json::json;
     use wiremock::matchers::{method, path};
