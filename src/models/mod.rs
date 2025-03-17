@@ -1,7 +1,7 @@
 use crate::services::bee_service::BeeService;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Default, Clone)]
 pub struct BeeData {
     pub id: u8,
     pub neighborhood: String,

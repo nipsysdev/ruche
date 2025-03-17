@@ -112,11 +112,7 @@ impl BeeService {
         return Ok(true);
     }
 
-    pub async fn save_bee(&self) -> Result<BeeData> {
-        if !self.ensure_capacity().await? {
-            return Err(anyhow!("Max capacity reached"));
-        }
-
+    pub async fn get_new_bee_id(&self) -> Result<u8> {
         let bees = self.get_bees().await?;
         let mut available_ids = (1..99).collect::<Vec<u8>>();
 
@@ -124,18 +120,19 @@ impl BeeService {
             available_ids.retain(|id| *id != bee.id);
         }
 
-        let new_id = available_ids
+        available_ids
             .first()
-            .ok_or(anyhow::anyhow!("Unable to get new bee id"))?;
+            .ok_or(anyhow::anyhow!("Unable to get new bee id"))
+            .map(|v| v.clone())
+    }
 
-        let bee = BeeData {
-            id: *new_id,
-            neighborhood: String::new(),
-            reserve_doubling: false,
-        };
+    pub async fn save_bee(&self, bee_data: BeeData) -> Result<BeeData> {
+        if !self.ensure_capacity().await? {
+            return Err(anyhow!("Max capacity reached"));
+        }
 
-        self.db.add_bee(bee.clone()).await?;
-        Ok(bee)
+        self.db.add_bee(bee_data.clone()).await?;
+        Ok(bee_data)
     }
 
     pub async fn get_bee(&self, bee_id: u8) -> Result<Option<BeeData>> {
@@ -458,18 +455,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn should_save_first_bee() {
-        let db = MockDbService::default();
-        let bee_service = BeeService::new(Config::default(), Box::new(db.clone()));
-
-        let new_bee = bee_service.save_bee().await.unwrap();
-
-        assert_eq!(new_bee.id, 1);
-        assert_eq!(db.count_bees().await.unwrap(), 1);
-    }
-
-    #[tokio::test]
-    async fn should_add_additional_bee() {
+    async fn should_get_next_bee_id() {
         let db = MockDbService::default();
         let bee_service = BeeService::new(Config::default(), Box::new(db.clone()));
 
@@ -489,30 +475,9 @@ mod tests {
         .await
         .unwrap();
 
-        let new_bee = bee_service.save_bee().await.unwrap();
+        let new_bee_id = bee_service.get_new_bee_id().await.unwrap();
 
-        assert_eq!(new_bee.id, 3);
-        assert_eq!(db.count_bees().await.unwrap(), 3);
-    }
-
-    #[tokio::test]
-    async fn should_fail_saving_when_max_capacity_reached() {
-        let db = MockDbService::default();
-        let bee_service = BeeService::new(Config::default(), Box::new(db.clone()));
-
-        for id in 1..=99 {
-            db.add_bee(BeeData {
-                id,
-                neighborhood: String::new(),
-                reserve_doubling: false,
-            })
-            .await
-            .unwrap();
-        }
-
-        let result = bee_service.save_bee().await;
-
-        assert!(result.is_err());
+        assert_eq!(new_bee_id, 3);
     }
 
     #[tokio::test]
@@ -535,9 +500,67 @@ mod tests {
         .await
         .unwrap();
 
-        let new_bee = bee_service.save_bee().await.unwrap();
+        let new_bee_id = bee_service.get_new_bee_id().await.unwrap();
 
-        assert_eq!(new_bee.id, 2);
-        assert_eq!(db.count_bees().await.unwrap(), 3);
+        assert_eq!(new_bee_id, 2);
+    }
+
+    #[tokio::test]
+    async fn should_fail_to_get_new_bee_id_when_all_ids_are_taken() {
+        let db = MockDbService::default();
+        let bee_service = BeeService::new(Config::default(), Box::new(db.clone()));
+
+        for id in 1..=99 {
+            db.add_bee(BeeData {
+                id,
+                neighborhood: String::new(),
+                reserve_doubling: false,
+            })
+            .await
+            .unwrap();
+        }
+
+        let result = bee_service.get_new_bee_id().await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Unable to get new bee id".to_string()
+        );
+    }
+
+    #[tokio::test]
+    async fn should_save_first_bee() {
+        let db = MockDbService::default();
+        let bee_service = BeeService::new(Config::default(), Box::new(db.clone()));
+        let bee_data = BeeData {
+            id: 1,
+            ..Default::default()
+        };
+
+        let new_bee = bee_service.save_bee(bee_data).await.unwrap();
+
+        assert_eq!(new_bee.id, 1);
+        assert_eq!(db.count_bees().await.unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn should_fail_saving_when_max_capacity_reached() {
+        let db = MockDbService::default();
+        let bee_service = BeeService::new(Config::default(), Box::new(db.clone()));
+
+        for id in 1..=99 {
+            db.add_bee(BeeData {
+                id,
+                neighborhood: String::new(),
+                reserve_doubling: false,
+            })
+            .await
+            .unwrap();
+        }
+
+        let result = bee_service.save_bee(BeeData::default()).await;
+
+        assert!(result.is_err());
     }
 }

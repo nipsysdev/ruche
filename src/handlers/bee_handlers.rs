@@ -1,9 +1,10 @@
 use crate::error::HttpError;
 use crate::models::BeeData;
+use crate::services::bee_service::BeeService;
 use crate::AppState;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, post};
 use axum::{Json, Router};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
@@ -11,13 +12,12 @@ use std::time::{Duration, SystemTime};
 pub fn init_bee_handlers(app_state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", post(create_bee))
-        .route("/", get(get_bees))
         .route("/{bee_id}", delete(delete_bee))
         .route("/{bee_id}/req", delete(request_bee_deletion))
         .with_state(app_state)
 }
 
-async fn create_bee(State(state): State<Arc<AppState>>) -> Result<Json<Vec<BeeData>>, HttpError> {
+async fn create_bee(State(state): State<Arc<AppState>>) -> Result<Json<BeeData>, HttpError> {
     if !state.bee_service.ensure_capacity().await? {
         return Err(HttpError::new(
             StatusCode::BAD_REQUEST,
@@ -28,19 +28,21 @@ async fn create_bee(State(state): State<Arc<AppState>>) -> Result<Json<Vec<BeeDa
         ));
     }
 
-    state
-        .bee_service
-        .save_bee()
-        .await
-        .map(|bee| vec![bee])
-        .map(Json)
-        .map_err(Into::into)
-}
+    let new_bee_id = state.bee_service.get_new_bee_id().await?;
 
-async fn get_bees(State(state): State<Arc<AppState>>) -> Result<Json<Vec<BeeData>>, HttpError> {
+    let neighborhood = BeeService::get_neighborhood().await?;
+
+    state.bee_service.create_node_dir(new_bee_id).await?;
+
+    let bee_data = BeeData {
+        id: new_bee_id,
+        neighborhood,
+        reserve_doubling: true,
+    };
+
     state
         .bee_service
-        .get_bees()
+        .save_bee(bee_data)
         .await
         .map(Json)
         .map_err(Into::into)
