@@ -282,27 +282,15 @@ mod tests {
 
         let mut bee_service = BeeService::new(config.clone(), Box::new(MockDbService::default()));
 
-        assert_eq!(
-            bee_service.get_dir_name(1).unwrap(),
-            "node_01"
-        );
+        assert_eq!(bee_service.get_dir_name(1).unwrap(), "node_01");
 
-        assert_eq!(
-            bee_service.get_dir_name(5).unwrap(),
-            "node_02"
-        );
+        assert_eq!(bee_service.get_dir_name(5).unwrap(), "node_02");
 
-        assert_eq!(
-            bee_service.get_dir_name(9).unwrap(),
-            "node_03"
-        );
+        assert_eq!(bee_service.get_dir_name(9).unwrap(), "node_03");
 
         config.storage.node_qty_per_volume = 3;
         bee_service = BeeService::new(config.clone(), Box::new(MockDbService::default()));
-        assert_eq!(
-            bee_service.get_dir_name(4).unwrap(),
-            "node_02"
-        );
+        assert_eq!(bee_service.get_dir_name(4).unwrap(), "node_02");
     }
 
     #[tokio::test]
@@ -340,9 +328,7 @@ mod tests {
         };
         let bee_service = BeeService::new(config, Box::new(MockDbService::default()));
 
-        
-        let result =
-            bee_service.create_node_dir(1).await;
+        let result = bee_service.create_node_dir(1).await;
 
         assert!(result.is_ok());
         let dir_path = result.unwrap();
@@ -354,7 +340,7 @@ mod tests {
         assert_eq!(metadata.permissions().mode() & 0o777, 0o755);
     }
 
-     #[tokio::test]
+    #[tokio::test]
     async fn should_fail_to_create_node_dir_if_dir_already_exists() {
         let temp_dir = tempfile::tempdir().unwrap();
         let base_path = temp_dir.path().to_str().unwrap();
@@ -406,7 +392,7 @@ mod tests {
         );
     }
 
-   #[tokio::test]
+    #[tokio::test]
     async fn should_save_first_bee() {
         let db = MockDbService::default();
         let bee_service = BeeService::new(Config::default(), Box::new(db.clone()));
