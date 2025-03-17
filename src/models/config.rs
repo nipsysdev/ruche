@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 use crate::utils::regex::{RegexVisitor, PORT_REGEX, VOLUME_NAME_REGEX};
 use serde::{Deserialize, Deserializer};
 use tokio::fs::File;
@@ -62,10 +64,10 @@ pub struct Chains {
 
 #[derive(Deserialize, Default, Clone)]
 pub struct Storage {
-    pub volumes_parent: String,
+    pub root_path: PathBuf,
     #[serde(deserialize_with = "validate_volume_name")]
-    pub volume_name: String,
-    pub node_qty_per_volume: u8,
+    pub parent_dir_format: String,
+    pub parent_dir_capacity: u8,
 }
 
 #[cfg(test)]
@@ -90,9 +92,9 @@ mod tests {
             gno_rpc = "https://some.rpc"
 
             [storage]
-            volumes_parent = "/media"
-            volume_name = "swarm_data_xx"
-            node_qty_per_volume = 4
+            root_path = "/media"
+            parent_dir_format = "swarm_data_xx"
+            parent_dir_capacity = 4
         "#;
 
         let config: Config = toml::from_str(mock_config).unwrap();
@@ -108,9 +110,9 @@ mod tests {
         assert_eq!(config.chains.eth_rpc, "https://some.rpc");
         assert_eq!(config.chains.gno_rpc, "https://some.rpc");
 
-        assert_eq!(config.storage.volumes_parent, "/media");
-        assert_eq!(config.storage.volume_name, "swarm_data_xx");
-        assert_eq!(config.storage.node_qty_per_volume, 4);
+        assert_eq!(config.storage.root_path, PathBuf::from("/media"));
+        assert_eq!(config.storage.parent_dir_format, "swarm_data_xx");
+        assert_eq!(config.storage.parent_dir_capacity, 4);
     }
 
     #[tokio::test]

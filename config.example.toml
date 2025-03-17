@@ -13,6 +13,6 @@ eth_rpc = "https://some.rpc"
 gno_rpc = "https://some.rpc"
 
 [storage]
-volumes_parent = "/media"
-volume_name = "swarm_data_xx"
-node_qty_per_volume = 4
+root_path = "/media"
+parent_dir_format = "swarm_data_xx"
+parent_dir_capacity = 4

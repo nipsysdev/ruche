@@ -57,30 +57,33 @@ impl BeeService {
     }
 
     pub fn get_dir_id(&self, bee_id: u8) -> u8 {
-        ((bee_id - 1) / self.config.storage.node_qty_per_volume) + 1
+        ((bee_id - 1) / self.config.storage.parent_dir_capacity) + 1
     }
 
-    pub fn get_dir_name(&self, bee_id: u8) -> Result<String> {
-        let dir_name_format = &self.config.storage.volume_name;
+    pub fn get_parent_dir_name(&self, bee_id: u8) -> Result<String> {
+        let dir_name_format = &self.config.storage.parent_dir_format;
 
         let re = Regex::new(VOLUME_NAME_REGEX)?;
         if !re.is_match(dir_name_format) {
-            return Err(anyhow!("Invalid volume name format '{}'", dir_name_format));
+            return Err(anyhow!("Invalid parent name format '{}'", dir_name_format));
         }
 
         Ok(dir_name_format.replace("xx", &Self::format_id(self.get_dir_id(bee_id))))
     }
 
     pub async fn create_node_dir(&self, id: u8) -> Result<PathBuf> {
-        let base_path = &self.config.storage.volumes_parent;
-        let dir_name = self.get_dir_name(id)?;
-        let dir_path = Path::new(base_path).join(dir_name);
+        let root_path = &self.config.storage.root_path;
+        let parent_name = self.get_parent_dir_name(id)?;
+        let parent_path = Path::new(root_path).join(parent_name);
 
-        if dir_path.exists() {
-            return Err(anyhow!("Directory '{}' already exists", dir_path.display()));
+        if parent_path.exists() {
+            return Err(anyhow!(
+                "Directory '{}' already exists",
+                parent_path.display()
+            ));
         }
 
-        fs::create_dir_all(&dir_path).await?;
+        fs::create_dir_all(&parent_path).await?;
 
         // Could it work without this?
         /*let bee_uid = User::from_name("bee")?
@@ -97,11 +100,11 @@ impl BeeService {
             Some(u32::from(systemd_journal_gid)),
         )?;*/
 
-        let mut perms = fs::metadata(&dir_path).await?.permissions();
+        let mut perms = fs::metadata(&parent_path).await?.permissions();
         perms.set_mode(0o755);
-        fs::set_permissions(&dir_path, perms).await?;
+        fs::set_permissions(&parent_path, perms).await?;
 
-        Ok(dir_path)
+        Ok(parent_path)
     }
 
     pub async fn ensure_capacity(&self) -> Result<bool> {
@@ -256,7 +259,7 @@ mod tests {
     async fn should_calculate_directory_id_correctly() {
         let mut config = Config::default();
 
-        config.storage.node_qty_per_volume = 4;
+        config.storage.parent_dir_capacity = 4;
         let mut bee_service = BeeService::new(config.clone(), Box::new(MockDbService::default()));
         assert_eq!(bee_service.get_dir_id(1), 1);
         assert_eq!(bee_service.get_dir_id(4), 1);
@@ -265,14 +268,14 @@ mod tests {
         assert_eq!(bee_service.get_dir_id(9), 3);
         assert_eq!(bee_service.get_dir_id(99), 25);
 
-        config.storage.node_qty_per_volume = 3;
+        config.storage.parent_dir_capacity = 3;
         bee_service = BeeService::new(config.clone(), Box::new(MockDbService::default()));
         assert_eq!(bee_service.get_dir_id(3), 1);
         assert_eq!(bee_service.get_dir_id(4), 2);
         assert_eq!(bee_service.get_dir_id(6), 2);
         assert_eq!(bee_service.get_dir_id(7), 3);
 
-        config.storage.node_qty_per_volume = 5;
+        config.storage.parent_dir_capacity = 5;
         bee_service = BeeService::new(config.clone(), Box::new(MockDbService::default()));
         assert_eq!(bee_service.get_dir_id(5), 1);
         assert_eq!(bee_service.get_dir_id(6), 2);
@@ -282,8 +285,8 @@ mod tests {
     async fn should_generate_directory_name_correctly() {
         let mut config = Config {
             storage: Storage {
-                volume_name: String::from("node_xx"),
-                node_qty_per_volume: 4,
+                parent_dir_format: String::from("node_xx"),
+                parent_dir_capacity: 4,
                 ..Storage::default()
             },
             ..Config::default()
@@ -291,46 +294,46 @@ mod tests {
 
         let mut bee_service = BeeService::new(config.clone(), Box::new(MockDbService::default()));
 
-        assert_eq!(bee_service.get_dir_name(1).unwrap(), "node_01");
+        assert_eq!(bee_service.get_parent_dir_name(1).unwrap(), "node_01");
 
-        assert_eq!(bee_service.get_dir_name(5).unwrap(), "node_02");
+        assert_eq!(bee_service.get_parent_dir_name(5).unwrap(), "node_02");
 
-        assert_eq!(bee_service.get_dir_name(9).unwrap(), "node_03");
+        assert_eq!(bee_service.get_parent_dir_name(9).unwrap(), "node_03");
 
-        config.storage.node_qty_per_volume = 3;
+        config.storage.parent_dir_capacity = 3;
         bee_service = BeeService::new(config.clone(), Box::new(MockDbService::default()));
-        assert_eq!(bee_service.get_dir_name(4).unwrap(), "node_02");
+        assert_eq!(bee_service.get_parent_dir_name(4).unwrap(), "node_02");
     }
 
     #[tokio::test]
     async fn should_return_error_for_invalid_volume_name_format() {
         let config = Config {
             storage: Storage {
-                volume_name: String::from("node_x"),
-                node_qty_per_volume: 4,
+                parent_dir_format: String::from("node_x"),
+                parent_dir_capacity: 4,
                 ..Storage::default()
             },
             ..Config::default()
         };
         let bee_service = BeeService::new(config, Box::new(MockDbService::default()));
 
-        let result = bee_service.get_dir_name(1);
+        let result = bee_service.get_parent_dir_name(1);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            "Invalid volume name format 'node_x'"
+            "Invalid parent name format 'node_x'"
         );
     }
 
     #[tokio::test]
     async fn should_create_node_dir_successfully() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let base_path = temp_dir.path().to_str().unwrap();
+        let root_path: PathBuf = temp_dir.path().into();
         let config = Config {
             storage: Storage {
-                volume_name: String::from("node_xx"),
-                volumes_parent: String::from(base_path),
-                node_qty_per_volume: 4,
+                root_path,
+                parent_dir_format: String::from("node_xx"),
+                parent_dir_capacity: 4,
                 ..Storage::default()
             },
             ..Config::default()
@@ -352,12 +355,12 @@ mod tests {
     #[tokio::test]
     async fn should_fail_to_create_node_dir_if_dir_already_exists() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let base_path = temp_dir.path().to_str().unwrap();
+        let root_path: PathBuf = temp_dir.path().into();
         let config = Config {
             storage: Storage {
-                volume_name: String::from("node_xx"),
-                volumes_parent: String::from(base_path),
-                node_qty_per_volume: 4,
+                root_path,
+                parent_dir_format: String::from("node_xx"),
+                parent_dir_capacity: 4,
                 ..Storage::default()
             },
             ..Config::default()
@@ -380,12 +383,12 @@ mod tests {
     #[tokio::test]
     async fn should_fail_to_create_node_dir_if_invalid_dir_format() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let base_path = temp_dir.path().to_str().unwrap();
+        let root_path: PathBuf = temp_dir.path().into();
         let config = Config {
             storage: Storage {
-                volume_name: String::from("node_x"),
-                volumes_parent: String::from(base_path),
-                node_qty_per_volume: 4,
+                root_path,
+                parent_dir_format: String::from("node_x"),
+                parent_dir_capacity: 4,
                 ..Storage::default()
             },
             ..Config::default()
@@ -397,7 +400,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            "Invalid volume name format 'node_x'"
+            "Invalid parent name format 'node_x'"
         );
     }
 
