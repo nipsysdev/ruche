@@ -1,4 +1,3 @@
-use crate::models::BeeData;
 use anyhow::Error;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -19,6 +18,8 @@ pub trait BeeDatabase: DynClone + Send + Sync {
 }
 
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+
+use crate::models::bee::BeeData;
 
 #[derive(Clone)]
 pub struct DbService {

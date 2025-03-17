@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::constants::NEIGHBORHOOD_API_URL;
-use crate::models::BeeData;
+use crate::models::bee::BeeData;
 use crate::services::db_service::BeeDatabase;
 use crate::utils::regex::{PORT_REGEX, VOLUME_NAME_REGEX};
 use anyhow::{anyhow, Result};

@@ -1,5 +1,5 @@
 use crate::error::HttpError;
-use crate::models::BeeData;
+use crate::models::bee::BeeData;
 use crate::services::bee_service::BeeService;
 use crate::AppState;
 use axum::extract::{Path, State};
