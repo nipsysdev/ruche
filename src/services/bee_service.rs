@@ -3,7 +3,7 @@ use crate::constants::NEIGHBORHOOD_API_URL;
 use crate::models::BeeData;
 use crate::services::db_service::BeeDatabase;
 use crate::utils::regex::{PORT_REGEX, VOLUME_NAME_REGEX};
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Result};
 use regex::Regex;
 use std::env;
 use std::os::unix::fs::PermissionsExt;
@@ -149,9 +149,7 @@ mod tests {
     use super::*;
     use crate::config::Storage;
     use crate::services::db_service::MockDbService;
-    use bollard::container::StorageStats;
     use serde_json::json;
-    use tower::layer::util::Stack;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -307,12 +305,19 @@ mod tests {
         );
     }
 
-    /* #[tokio::test]
+    #[tokio::test]
     async fn should_return_error_for_invalid_volume_name_format() {
-        let invalid_format = "node_x";
-        let dir_capacity = 4;
+        let config = Config {
+            storage: Storage {
+                volume_name: String::from("node_x"),
+                node_qty_per_volume: 4,
+                ..Storage::default()
+            },
+            ..Config::default()
+        };
+        let bee_service = BeeService::new(config, Box::new(MockDbService::default()));
 
-        let result = BeeService::get_dir_name(1, invalid_format, dir_capacity);
+        let result = bee_service.get_dir_name(1);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
@@ -324,12 +329,20 @@ mod tests {
     async fn should_create_node_dir_successfully() {
         let temp_dir = tempfile::tempdir().unwrap();
         let base_path = temp_dir.path().to_str().unwrap();
-        let dir_name_format = "node_xx";
-        let dir_capacity = 4;
-        let bee_id = 1;
+        let config = Config {
+            storage: Storage {
+                volume_name: String::from("node_xx"),
+                volumes_parent: String::from(base_path),
+                node_qty_per_volume: 4,
+                ..Storage::default()
+            },
+            ..Config::default()
+        };
+        let bee_service = BeeService::new(config, Box::new(MockDbService::default()));
 
+        
         let result =
-            BeeService::create_node_dir(bee_id, base_path, dir_name_format, dir_capacity).await;
+            bee_service.create_node_dir(1).await;
 
         assert!(result.is_ok());
         let dir_path = result.unwrap();
@@ -341,16 +354,26 @@ mod tests {
         assert_eq!(metadata.permissions().mode() & 0o777, 0o755);
     }
 
-    #[tokio::test]
+     #[tokio::test]
     async fn should_fail_to_create_node_dir_if_dir_already_exists() {
         let temp_dir = tempfile::tempdir().unwrap();
         let base_path = temp_dir.path().to_str().unwrap();
+        let config = Config {
+            storage: Storage {
+                volume_name: String::from("node_xx"),
+                volumes_parent: String::from(base_path),
+                node_qty_per_volume: 4,
+                ..Storage::default()
+            },
+            ..Config::default()
+        };
+        let bee_service = BeeService::new(config, Box::new(MockDbService::default()));
         let existing_dir_name = "node_01";
-        let existing_path = temp_dir.path().join(existing_dir_name);
+        let existing_path = temp_dir.path().join(String::from(existing_dir_name));
 
         tokio::fs::create_dir_all(&existing_path).await.unwrap();
 
-        let result = BeeService::create_node_dir(1, base_path, "node_xx", 4).await;
+        let result = bee_service.create_node_dir(1).await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -363,8 +386,18 @@ mod tests {
     async fn should_fail_to_create_node_dir_if_invalid_dir_format() {
         let temp_dir = tempfile::tempdir().unwrap();
         let base_path = temp_dir.path().to_str().unwrap();
+        let config = Config {
+            storage: Storage {
+                volume_name: String::from("node_x"),
+                volumes_parent: String::from(base_path),
+                node_qty_per_volume: 4,
+                ..Storage::default()
+            },
+            ..Config::default()
+        };
+        let bee_service = BeeService::new(config, Box::new(MockDbService::default()));
 
-        let result = BeeService::create_node_dir(1, base_path, "node_x", 4).await;
+        let result = bee_service.create_node_dir(1).await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -373,21 +406,23 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+   #[tokio::test]
     async fn should_save_first_bee() {
-        let mock = MockDbService::default();
+        let db = MockDbService::default();
+        let bee_service = BeeService::new(Config::default(), Box::new(db.clone()));
 
-        let new_bee = BeeService::save_bee(&mock).await.unwrap();
+        let new_bee = bee_service.save_bee().await.unwrap();
 
         assert_eq!(new_bee.id, 1);
-        assert_eq!(mock.count_bees().await.unwrap(), 1);
+        assert_eq!(db.count_bees().await.unwrap(), 1);
     }
 
     #[tokio::test]
     async fn should_add_additional_bee() {
-        let mock = MockDbService::default();
+        let db = MockDbService::default();
+        let bee_service = BeeService::new(Config::default(), Box::new(db.clone()));
 
-        mock.add_bee(BeeData {
+        db.add_bee(BeeData {
             id: 1,
             neighborhood: String::new(),
             reserve_doubling: false,
@@ -395,7 +430,7 @@ mod tests {
         .await
         .unwrap();
 
-        mock.add_bee(BeeData {
+        db.add_bee(BeeData {
             id: 2,
             neighborhood: String::new(),
             reserve_doubling: false,
@@ -403,18 +438,19 @@ mod tests {
         .await
         .unwrap();
 
-        let new_bee = BeeService::save_bee(&mock).await.unwrap();
+        let new_bee = bee_service.save_bee().await.unwrap();
 
         assert_eq!(new_bee.id, 3);
-        assert_eq!(mock.count_bees().await.unwrap(), 3);
+        assert_eq!(db.count_bees().await.unwrap(), 3);
     }
 
     #[tokio::test]
     async fn should_fail_saving_when_max_capacity_reached() {
-        let mock = MockDbService::default();
+        let db = MockDbService::default();
+        let bee_service = BeeService::new(Config::default(), Box::new(db.clone()));
 
         for id in 1..=99 {
-            mock.add_bee(BeeData {
+            db.add_bee(BeeData {
                 id,
                 neighborhood: String::new(),
                 reserve_doubling: false,
@@ -423,23 +459,24 @@ mod tests {
             .unwrap();
         }
 
-        let result = BeeService::save_bee(&mock).await;
+        let result = bee_service.save_bee().await;
 
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn should_pick_first_available_id() {
-        let mock = MockDbService::default();
+        let db = MockDbService::default();
+        let bee_service = BeeService::new(Config::default(), Box::new(db.clone()));
 
-        mock.add_bee(BeeData {
+        db.add_bee(BeeData {
             id: 1,
             neighborhood: String::new(),
             reserve_doubling: false,
         })
         .await
         .unwrap();
-        mock.add_bee(BeeData {
+        db.add_bee(BeeData {
             id: 3,
             neighborhood: String::new(),
             reserve_doubling: false,
@@ -447,9 +484,9 @@ mod tests {
         .await
         .unwrap();
 
-        let new_bee = BeeService::save_bee(&mock).await.unwrap();
+        let new_bee = bee_service.save_bee().await.unwrap();
 
         assert_eq!(new_bee.id, 2);
-        assert_eq!(mock.count_bees().await.unwrap(), 3);
-    } */
+        assert_eq!(db.count_bees().await.unwrap(), 3);
+    }
 }
