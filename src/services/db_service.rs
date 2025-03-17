@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use dyn_clone::DynClone;
 use polodb_core::bson::doc;
-use polodb_core::{ClientCursor, Collection, CollectionT, Database};
+use polodb_core::{Collection, CollectionT, Database};
 use std::collections::VecDeque;
 use std::sync::Arc;
 

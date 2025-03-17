@@ -63,7 +63,7 @@ async fn delete_bee(
         None => false,
     };
 
-    if (!has_made_request) {
+    if !has_made_request {
         return Err(HttpError::new(
             StatusCode::BAD_REQUEST,
             &format!(
