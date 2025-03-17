@@ -27,7 +27,7 @@ impl BeeService {
         format!("{:02}", id)
     }
 
-    pub fn get_name(id: u8) -> String {
+    pub fn get_node_name(id: u8) -> String {
         format!("node_{}", Self::format_id(id))
     }
 
@@ -75,15 +75,16 @@ impl BeeService {
         let root_path = &self.config.storage.root_path;
         let parent_name = self.get_parent_dir_name(id)?;
         let parent_path = Path::new(root_path).join(parent_name);
+        let node_path = parent_path.join(BeeService::get_node_name(id));
 
-        if parent_path.exists() {
+        if node_path.exists() {
             return Err(anyhow!(
                 "Directory '{}' already exists",
-                parent_path.display()
+                node_path.display()
             ));
         }
 
-        fs::create_dir_all(&parent_path).await?;
+        fs::create_dir_all(&node_path).await?;
 
         // Could it work without this?
         /*let bee_uid = User::from_name("bee")?
@@ -100,11 +101,11 @@ impl BeeService {
             Some(u32::from(systemd_journal_gid)),
         )?;*/
 
-        let mut perms = fs::metadata(&parent_path).await?.permissions();
+        let mut perms = fs::metadata(&node_path).await?.permissions();
         perms.set_mode(0o755);
-        fs::set_permissions(&parent_path, perms).await?;
+        fs::set_permissions(&node_path, perms).await?;
 
-        Ok(parent_path)
+        Ok(node_path)
     }
 
     pub async fn ensure_capacity(&self) -> Result<bool> {
@@ -174,7 +175,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_return_name_from_id() {
-        assert_eq!(BeeService::get_name(5), "node_05");
+        assert_eq!(BeeService::get_node_name(5), "node_05");
     }
 
     #[tokio::test]
@@ -285,7 +286,7 @@ mod tests {
     async fn should_generate_directory_name_correctly() {
         let mut config = Config {
             storage: Storage {
-                parent_dir_format: String::from("node_xx"),
+                parent_dir_format: String::from("swarm_data_xx"),
                 parent_dir_capacity: 4,
                 ..Storage::default()
             },
@@ -294,22 +295,22 @@ mod tests {
 
         let mut bee_service = BeeService::new(config.clone(), Box::new(MockDbService::default()));
 
-        assert_eq!(bee_service.get_parent_dir_name(1).unwrap(), "node_01");
+        assert_eq!(bee_service.get_parent_dir_name(1).unwrap(), "swarm_data_01");
 
-        assert_eq!(bee_service.get_parent_dir_name(5).unwrap(), "node_02");
+        assert_eq!(bee_service.get_parent_dir_name(5).unwrap(), "swarm_data_02");
 
-        assert_eq!(bee_service.get_parent_dir_name(9).unwrap(), "node_03");
+        assert_eq!(bee_service.get_parent_dir_name(9).unwrap(), "swarm_data_03");
 
         config.storage.parent_dir_capacity = 3;
         bee_service = BeeService::new(config.clone(), Box::new(MockDbService::default()));
-        assert_eq!(bee_service.get_parent_dir_name(4).unwrap(), "node_02");
+        assert_eq!(bee_service.get_parent_dir_name(4).unwrap(), "swarm_data_02");
     }
 
     #[tokio::test]
     async fn should_return_error_for_invalid_volume_name_format() {
         let config = Config {
             storage: Storage {
-                parent_dir_format: String::from("node_x"),
+                parent_dir_format: String::from("swarm_data_x"),
                 parent_dir_capacity: 4,
                 ..Storage::default()
             },
@@ -321,7 +322,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            "Invalid parent name format 'node_x'"
+            "Invalid parent name format 'swarm_data_x'"
         );
     }
 
@@ -331,8 +332,8 @@ mod tests {
         let root_path: PathBuf = temp_dir.path().into();
         let config = Config {
             storage: Storage {
-                root_path,
-                parent_dir_format: String::from("node_xx"),
+                root_path: root_path.clone(),
+                parent_dir_format: String::from("swarm_data_xx"),
                 parent_dir_capacity: 4,
                 ..Storage::default()
             },
@@ -343,32 +344,29 @@ mod tests {
         let result = bee_service.create_node_dir(1).await;
 
         assert!(result.is_ok());
-        let dir_path = result.unwrap();
+        let node_path = result.unwrap();
 
-        assert!(dir_path.exists());
-        assert_eq!(dir_path.file_name().unwrap().to_str().unwrap(), "node_01");
+        assert!(node_path.exists());
+        assert_eq!(node_path, root_path.join("swarm_data_01").join("node_01"));
 
-        let metadata = tokio::fs::metadata(&dir_path).await.unwrap();
+        let metadata = tokio::fs::metadata(&node_path).await.unwrap();
         assert_eq!(metadata.permissions().mode() & 0o777, 0o755);
     }
 
     #[tokio::test]
     async fn should_fail_to_create_node_dir_if_dir_already_exists() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let root_path: PathBuf = temp_dir.path().into();
+        let root_path: PathBuf = tempfile::tempdir().unwrap().path().into();
         let config = Config {
             storage: Storage {
-                root_path,
-                parent_dir_format: String::from("node_xx"),
+                root_path: root_path.clone(),
+                parent_dir_format: String::from("swarm_data_xx"),
                 parent_dir_capacity: 4,
                 ..Storage::default()
             },
             ..Config::default()
         };
         let bee_service = BeeService::new(config, Box::new(MockDbService::default()));
-        let existing_dir_name = "node_01";
-        let existing_path = temp_dir.path().join(String::from(existing_dir_name));
-
+        let existing_path = root_path.join("swarm_data_01").join("node_01");
         tokio::fs::create_dir_all(&existing_path).await.unwrap();
 
         let result = bee_service.create_node_dir(1).await;
@@ -381,13 +379,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn should_not_fail_to_create_node_dir_if_parent_dir_already_exists() {
+        let root_path: PathBuf = tempfile::tempdir().unwrap().path().into();
+        let config = Config {
+            storage: Storage {
+                root_path: root_path.clone(),
+                parent_dir_format: String::from("swarm_data_xx"),
+                parent_dir_capacity: 4,
+                ..Storage::default()
+            },
+            ..Config::default()
+        };
+        let bee_service = BeeService::new(config, Box::new(MockDbService::default()));
+        let existing_path = root_path.join("swarm_data_01").join("node_02");
+        tokio::fs::create_dir_all(&existing_path).await.unwrap();
+
+        let result = bee_service.create_node_dir(1).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
     async fn should_fail_to_create_node_dir_if_invalid_dir_format() {
         let temp_dir = tempfile::tempdir().unwrap();
         let root_path: PathBuf = temp_dir.path().into();
         let config = Config {
             storage: Storage {
                 root_path,
-                parent_dir_format: String::from("node_x"),
+                parent_dir_format: String::from("swarm_data_x"),
                 parent_dir_capacity: 4,
                 ..Storage::default()
             },
@@ -400,7 +419,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            "Invalid parent name format 'node_x'"
+            "Invalid parent name format 'swarm_data_x'"
         );
     }
 

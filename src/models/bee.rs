@@ -10,6 +10,6 @@ pub struct BeeData {
 
 impl BeeData {
     pub fn name(&self) -> String {
-        BeeService::get_name(self.id)
+        BeeService::get_node_name(self.id)
     }
 }
