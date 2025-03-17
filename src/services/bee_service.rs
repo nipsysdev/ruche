@@ -104,11 +104,19 @@ impl BeeService {
         Ok(dir_path)
     }
 
-    pub async fn save_bee(&self) -> Result<BeeData> {
+    pub async fn ensure_capacity(&self) -> Result<bool> {
         let count = self.db.count_bees().await?;
         if count >= 99 {
+            return Ok(false);
+        }
+        return Ok(true);
+    }
+
+    pub async fn save_bee(&self) -> Result<BeeData> {
+        if !self.ensure_capacity().await? {
             return Err(anyhow!("Max capacity reached"));
         }
+
         let bees = self.get_bees().await?;
         let mut available_ids = (1..99).collect::<Vec<u8>>();
 
@@ -136,6 +144,10 @@ impl BeeService {
 
     pub async fn get_bees(&self) -> Result<Vec<BeeData>> {
         self.db.get_bees().await
+    }
+
+    pub async fn count_bees(&self) -> Result<u64> {
+        self.db.count_bees().await
     }
 
     pub async fn delete_bee(&self, bee_id: u8) -> Result<()> {
@@ -389,6 +401,59 @@ mod tests {
         assert_eq!(
             result.unwrap_err().to_string(),
             "Invalid volume name format 'node_x'"
+        );
+    }
+
+    #[tokio::test]
+    async fn ensure_capacity_returns_true_under_99() {
+        let mock_db = MockDbService::default();
+        for id in 1..99 {
+            mock_db
+                .add_bee(BeeData {
+                    id,
+                    neighborhood: String::new(),
+                    reserve_doubling: false,
+                })
+                .await
+                .unwrap();
+        }
+        let service = BeeService::new(Config::default(), Box::new(mock_db));
+
+        let capacity = service.ensure_capacity().await.unwrap();
+
+        assert!(capacity, "ensure_capacity should return true when under 99");
+    }
+
+    #[tokio::test]
+    async fn ensure_capacity_returns_false_at_99() {
+        let mock_db = MockDbService::default();
+        for id in 1..=99 {
+            mock_db
+                .add_bee(BeeData {
+                    id,
+                    neighborhood: String::new(),
+                    reserve_doubling: false,
+                })
+                .await
+                .unwrap();
+        }
+        let service = BeeService::new(Config::default(), Box::new(mock_db));
+
+        let capacity = service.ensure_capacity().await.unwrap();
+
+        assert!(!capacity, "ensure_capacity should return false at 99");
+    }
+
+    #[tokio::test]
+    async fn ensure_capacity_returns_true_when_empty() {
+        let mock_db = MockDbService::default();
+        let service = BeeService::new(Config::default(), Box::new(mock_db));
+
+        let capacity = service.ensure_capacity().await.unwrap();
+
+        assert!(
+            capacity,
+            "ensure_capacity should return true when no bees exist"
         );
     }
 

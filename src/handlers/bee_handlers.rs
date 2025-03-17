@@ -18,6 +18,16 @@ pub fn init_bee_handlers(app_state: Arc<AppState>) -> Router {
 }
 
 async fn create_bee(State(state): State<Arc<AppState>>) -> Result<Json<Vec<BeeData>>, HttpError> {
+    if !state.bee_service.ensure_capacity().await? {
+        return Err(HttpError::new(
+            StatusCode::BAD_REQUEST,
+            &format!(
+                "Max capacity reached. {} bee nodes already registered.",
+                state.bee_service.count_bees().await?
+            ),
+        ));
+    }
+
     state
         .bee_service
         .save_bee()
