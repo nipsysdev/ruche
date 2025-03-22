@@ -1,10 +1,10 @@
 use crate::error::HttpError;
-use crate::models::bee::{self, BeeData, BeeInfo};
+use crate::models::bee::{BeeData, BeeInfo};
 use crate::services::bee_service::BeeService;
 use crate::AppState;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::routing::{delete, post};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
@@ -12,6 +12,7 @@ use std::time::{Duration, SystemTime};
 pub fn init_bee_handlers(app_state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", post(create_bee))
+        .route("/{bee_id}", get(get_bee))
         .route("/{bee_id}", delete(delete_bee))
         .route("/{bee_id}/req", delete(request_bee_deletion))
         .with_state(app_state)
@@ -50,11 +51,22 @@ async fn create_bee(State(state): State<Arc<AppState>>) -> Result<Json<BeeInfo>,
         .map_err(Into::into)
 }
 
+async fn get_bee(
+    Path(bee_id): Path<u8>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<BeeInfo>, HttpError> {
+    find_bee(bee_id, &state)
+        .await
+        .and_then(|data| state.bee_service.data_to_info(&data).map_err(Into::into))
+        .map(Json)
+        .map_err(Into::into)
+}
+
 async fn request_bee_deletion(
     Path(bee_id): Path<u8>,
     State(state): State<Arc<AppState>>,
 ) -> Result<(), HttpError> {
-    ensure_bee_exists(bee_id, state.clone()).await?;
+    find_bee(bee_id, &state).await?;
 
     let mut last_bee_deletion_req = state.last_bee_deletion_req.lock().await;
     last_bee_deletion_req.insert(bee_id, SystemTime::now());
@@ -65,7 +77,7 @@ async fn delete_bee(
     Path(bee_id): Path<u8>,
     State(state): State<Arc<AppState>>,
 ) -> Result<(), HttpError> {
-    ensure_bee_exists(bee_id, state.clone()).await?;
+    find_bee(bee_id, &state).await?;
 
     let mut last_bee_deletion_req = state.last_bee_deletion_req.lock().await;
 
@@ -81,7 +93,7 @@ async fn delete_bee(
         return Err(HttpError::new(
             StatusCode::BAD_REQUEST,
             &format!(
-                "Unable to confirm deletion of bee with id {}. No request made in last 30sec.",
+                "Unable to confirm deletion of bee node with id {}. No request made in last 30sec.",
                 bee_id
             ),
         ));
@@ -94,12 +106,12 @@ async fn delete_bee(
     Ok(())
 }
 
-async fn ensure_bee_exists(bee_id: u8, state: Arc<AppState>) -> Result<(), HttpError> {
+async fn find_bee(bee_id: u8, state: &Arc<AppState>) -> Result<BeeData, HttpError> {
     match state.bee_service.get_bee(bee_id).await? {
-        Some(_) => Ok(()),
+        Some(data) => Ok(data),
         None => Err(HttpError::new(
             StatusCode::NOT_FOUND,
-            &format!("Unable to find bee with id {}.", bee_id),
+            &format!("Unable to find bee node with id {}.", bee_id),
         )),
     }
 }
