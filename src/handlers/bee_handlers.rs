@@ -1,6 +1,6 @@
 use crate::bee_service::BeeService;
-use crate::error::HttpError;
 use crate::models::bee::{BeeData, BeeInfo};
+use crate::models::http_error::HttpError;
 use crate::AppState;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;

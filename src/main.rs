@@ -1,5 +1,4 @@
 mod bee_service;
-mod error;
 mod handlers;
 mod models;
 mod services;
