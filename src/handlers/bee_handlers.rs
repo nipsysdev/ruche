@@ -1,6 +1,6 @@
+use crate::bee_service::BeeService;
 use crate::error::HttpError;
 use crate::models::bee::{BeeData, BeeInfo};
-use crate::services::bee_service::BeeService;
 use crate::AppState;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -44,7 +44,7 @@ async fn create_bee(State(state): State<Arc<AppState>>) -> Result<Json<BeeInfo>,
 
     state
         .bee_service
-        .save_bee(bee_data)
+        .save_bee(&bee_data)
         .await
         .and_then(|data| state.bee_service.data_to_info(&data))
         .map(Json)

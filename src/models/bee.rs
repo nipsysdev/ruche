@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
-use crate::services::bee_service::BeeService;
 use serde::{Deserialize, Serialize};
+
+use crate::bee_service::BeeService;
 
 #[derive(Deserialize, Serialize, Default, Clone)]
 pub struct BeeData {

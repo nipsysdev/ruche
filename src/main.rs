@@ -1,3 +1,4 @@
+mod bee_service;
 mod constants;
 mod error;
 mod handlers;
@@ -6,9 +7,9 @@ mod services;
 mod utils;
 
 use crate::handlers::bee_handlers::init_bee_handlers;
-use crate::services::bee_service::BeeService;
 use crate::services::db_service::DbService;
 use axum::Router;
+use bee_service::BeeService;
 use handlers::bees_handlers::init_bees_handlers;
 use models::config::Config;
 use std::collections::HashMap;
