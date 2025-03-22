@@ -1,5 +1,5 @@
 use crate::error::HttpError;
-use crate::models::bee::BeeData;
+use crate::models::bee::{self, BeeData, BeeInfo};
 use crate::services::bee_service::BeeService;
 use crate::AppState;
 use axum::extract::{Path, State};
@@ -17,7 +17,7 @@ pub fn init_bee_handlers(app_state: Arc<AppState>) -> Router {
         .with_state(app_state)
 }
 
-async fn create_bee(State(state): State<Arc<AppState>>) -> Result<Json<BeeData>, HttpError> {
+async fn create_bee(State(state): State<Arc<AppState>>) -> Result<Json<BeeInfo>, HttpError> {
     if !state.bee_service.ensure_capacity().await? {
         return Err(HttpError::new(
             StatusCode::BAD_REQUEST,
@@ -32,18 +32,20 @@ async fn create_bee(State(state): State<Arc<AppState>>) -> Result<Json<BeeData>,
 
     let neighborhood = BeeService::get_neighborhood().await?;
 
-    state.bee_service.create_node_dir(new_bee_id).await?;
+    let data_dir = state.bee_service.create_node_dir(new_bee_id).await?;
 
     let bee_data = BeeData {
         id: new_bee_id,
         neighborhood,
         reserve_doubling: true,
+        data_dir,
     };
 
     state
         .bee_service
         .save_bee(bee_data)
         .await
+        .and_then(|data| state.bee_service.data_to_info(&data))
         .map(Json)
         .map_err(Into::into)
 }

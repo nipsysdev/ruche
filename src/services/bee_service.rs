@@ -1,5 +1,5 @@
 use crate::constants::NEIGHBORHOOD_API_URL;
-use crate::models::bee::BeeData;
+use crate::models::bee::{BeeData, BeeInfo};
 use crate::models::config::Config;
 use crate::services::db_service::BeeDatabase;
 use crate::utils::regex::{PORT_REGEX, VOLUME_NAME_REGEX};
@@ -53,7 +53,15 @@ impl BeeService {
             .ok_or(anyhow!("Missing 'neighborhood' field"))?
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("Invalid 'neighborhood' field"))?
-            .to_string())
+            .to_owned())
+    }
+
+    pub fn get_api_port(&self, id: u8) -> Result<String> {
+        return Self::get_port(id, &self.config.network.api_port);
+    }
+
+    pub fn get_p2p_port(&self, id: u8) -> Result<String> {
+        return Self::get_port(id, &self.config.network.p2p_port);
     }
 
     pub fn get_dir_id(&self, bee_id: u8) -> u8 {
@@ -161,6 +169,18 @@ impl BeeService {
         self.db.delete_bee(bee_id).await?;
         Ok(())
     }
+
+    pub fn data_to_info(&self, data: &BeeData) -> Result<BeeInfo> {
+        let api_port = &self.get_api_port(data.id)?;
+        let p2p_port = &self.get_p2p_port(data.id)?;
+        Ok(BeeInfo::new(
+            data,
+            &self.config.bee.image,
+            &self.config.bee.password_path,
+            api_port,
+            p2p_port,
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -260,6 +280,53 @@ mod tests {
         let result = BeeService::get_neighborhood().await;
 
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn should_return_api_port_from_config() {
+        let config = Config {
+            network: crate::models::config::Network {
+                api_port: "17xx".to_string(),
+                p2p_port: "18xx".to_string(),
+                ..Default::default()
+            },
+            ..Config::default()
+        };
+        let service = BeeService::new(config, Box::new(MockDbService::default()));
+
+        let api_port = service.get_api_port(5).unwrap();
+        let p2p_port = service.get_p2p_port(5).unwrap();
+
+        assert_eq!(api_port, "1705");
+        assert_eq!(p2p_port, "1805");
+    }
+
+    #[tokio::test]
+    async fn should_fail_api_port_with_invalid_base() {
+        let config = Config {
+            network: crate::models::config::Network {
+                api_port: "1705".to_string(),
+                ..Default::default()
+            },
+            ..Config::default()
+        };
+        let service = BeeService::new(config, Box::new(MockDbService::default()));
+
+        assert!(service.get_api_port(5).is_err());
+    }
+
+    #[tokio::test]
+    async fn should_fail_p2p_port_with_invalid_base() {
+        let config = Config {
+            network: crate::models::config::Network {
+                p2p_port: "test".to_string(),
+                ..Default::default()
+            },
+            ..Config::default()
+        };
+        let service = BeeService::new(config, Box::new(MockDbService::default()));
+
+        assert!(service.get_p2p_port(5).is_err());
     }
 
     #[tokio::test]
@@ -520,8 +587,7 @@ mod tests {
             mock_db
                 .add_bee(BeeData {
                     id,
-                    neighborhood: String::new(),
-                    reserve_doubling: false,
+                    ..Default::default()
                 })
                 .await
                 .unwrap();
@@ -540,8 +606,7 @@ mod tests {
             mock_db
                 .add_bee(BeeData {
                     id,
-                    neighborhood: String::new(),
-                    reserve_doubling: false,
+                    ..Default::default()
                 })
                 .await
                 .unwrap();
@@ -573,16 +638,14 @@ mod tests {
 
         db.add_bee(BeeData {
             id: 1,
-            neighborhood: String::new(),
-            reserve_doubling: false,
+            ..Default::default()
         })
         .await
         .unwrap();
 
         db.add_bee(BeeData {
             id: 2,
-            neighborhood: String::new(),
-            reserve_doubling: false,
+            ..Default::default()
         })
         .await
         .unwrap();
@@ -599,15 +662,13 @@ mod tests {
 
         db.add_bee(BeeData {
             id: 1,
-            neighborhood: String::new(),
-            reserve_doubling: false,
+            ..Default::default()
         })
         .await
         .unwrap();
         db.add_bee(BeeData {
             id: 3,
-            neighborhood: String::new(),
-            reserve_doubling: false,
+            ..Default::default()
         })
         .await
         .unwrap();
@@ -625,8 +686,7 @@ mod tests {
         for id in 1..=99 {
             db.add_bee(BeeData {
                 id,
-                neighborhood: String::new(),
-                reserve_doubling: false,
+                ..Default::default()
             })
             .await
             .unwrap();
@@ -664,8 +724,7 @@ mod tests {
         for id in 1..=99 {
             db.add_bee(BeeData {
                 id,
-                neighborhood: String::new(),
-                reserve_doubling: false,
+                ..Default::default()
             })
             .await
             .unwrap();
@@ -710,5 +769,36 @@ mod tests {
         assert!(bee_service.get_bee(bee_id).await.unwrap().is_none());
         assert!(!node_path.exists());
         assert!(!nested_file_path.exists());
+    }
+
+    #[tokio::test]
+    async fn should_convert_bee_data_to_info() {
+        let config = Config {
+            network: crate::models::config::Network {
+                api_port: "17xx".to_string(),
+                p2p_port: "18xx".to_string(),
+                ..Default::default()
+            },
+            bee: crate::models::config::Bee {
+                image: "bee-image:latest".to_string(),
+                password_path: "/etc/bee/password".to_string(),
+                ..Default::default()
+            },
+            ..Config::default()
+        };
+        let db = MockDbService::default();
+        let service = BeeService::new(config, Box::new(db));
+
+        let bee_data = BeeData {
+            id: 5,
+            ..Default::default()
+        };
+
+        let bee_info = service.data_to_info(&bee_data).unwrap();
+
+        assert_eq!(bee_info.api_port, "1705");
+        assert_eq!(bee_info.p2p_port, "1805");
+        assert_eq!(bee_info.image, "bee-image:latest");
+        assert_eq!(bee_info.password_path, "/etc/bee/password");
     }
 }
