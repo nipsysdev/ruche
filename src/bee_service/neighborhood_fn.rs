@@ -2,7 +2,8 @@ use std::env;
 
 use anyhow::{anyhow, Result};
 
-use crate::constants::NEIGHBORHOOD_API_URL;
+const NEIGHBORHOOD_API_URL: &'static str =
+    "https://api.swarmscan.io/v1/network/neighborhoods/suggestion";
 
 pub async fn get_neighborhood() -> Result<String> {
     let url = env::var("NEIGHBORHOOD_API_URL").unwrap_or_else(|_| NEIGHBORHOOD_API_URL.to_string());
