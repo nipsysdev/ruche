@@ -1,9 +1,9 @@
 use crate::{
+    core::database::BeeDatabase,
     models::{
         bee::{BeeData, BeeInfo},
         config::Config,
     },
-    services::db_service::BeeDatabase,
 };
 use anyhow::{anyhow, Result};
 use tokio::fs;
@@ -86,7 +86,7 @@ pub fn data_to_info(config: &Config, data: &BeeData) -> Result<BeeInfo> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{models::config::Storage, services::db_service::MockDbService};
+    use crate::{core::database::MockDbService, models::config::Storage};
 
     #[tokio::test]
     async fn should_format_id() {

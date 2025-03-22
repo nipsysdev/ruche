@@ -3,7 +3,8 @@ use anyhow::Result;
 use async_trait::async_trait;
 use dyn_clone::DynClone;
 use polodb_core::bson::doc;
-use polodb_core::{Collection, CollectionT, Database};
+use polodb_core::Database as PoloDb;
+use polodb_core::{Collection, CollectionT};
 use std::collections::VecDeque;
 use std::sync::Arc;
 
@@ -24,14 +25,14 @@ use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::models::bee::BeeData;
 
 #[derive(Clone)]
-pub struct DbService {
-    db: Arc<RwLock<Database>>,
+pub struct Database {
+    db: Arc<RwLock<PoloDb>>,
 }
 
-impl DbService {
+impl Database {
     pub fn new() -> Self {
-        let db = Database::open_path("ruche.db").expect("Failed to open database");
-        DbService {
+        let db = PoloDb::open_path("ruche.db").expect("Failed to open database");
+        Database {
             db: Arc::new(RwLock::new(db)),
         }
     }
@@ -46,7 +47,7 @@ impl DbService {
 }
 
 #[async_trait]
-impl BeeDatabase for DbService {
+impl BeeDatabase for Database {
     async fn add_bee(&self, bee: BeeData) -> Result<()> {
         let collection = self.get_bees_col_write().await;
         collection.insert_one(bee)?;

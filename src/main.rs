@@ -1,11 +1,11 @@
 mod bee_service;
+mod core;
 mod handlers;
 mod models;
-mod services;
 mod utils;
 
+use crate::core::database::Database;
 use crate::handlers::bee_handlers::init_bee_handlers;
-use crate::services::db_service::DbService;
 use axum::Router;
 use bee_service::BeeService;
 use handlers::bees_handlers::init_bees_handlers;
@@ -31,11 +31,11 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let config = Config::parse().await;
-    let db_service = DbService::new();
+    let database = Database::new();
     // let docker_service = DockerService::new();
 
     let app_state: Arc<AppState> = Arc::new(AppState {
-        bee_service: BeeService::new(config, Box::new(db_service)),
+        bee_service: BeeService::new(config, Box::new(database)),
         last_bee_deletion_req: Arc::new(Mutex::new(HashMap::new())),
     });
 

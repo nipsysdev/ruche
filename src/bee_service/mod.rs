@@ -12,11 +12,11 @@ use network_fn::*;
 use storage_fn::*;
 
 use crate::{
+    core::database::BeeDatabase,
     models::{
         bee::{BeeData, BeeInfo},
         config::Config,
     },
-    services::db_service::BeeDatabase,
 };
 
 #[derive(Clone)]
