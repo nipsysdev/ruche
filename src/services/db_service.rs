@@ -7,6 +7,8 @@ use polodb_core::{Collection, CollectionT, Database};
 use std::collections::VecDeque;
 use std::sync::Arc;
 
+dyn_clone::clone_trait_object!(BeeDatabase);
+
 #[async_trait]
 pub trait BeeDatabase: DynClone + Send + Sync {
     async fn add_bee(&self, bee: BeeData) -> Result<()>;
