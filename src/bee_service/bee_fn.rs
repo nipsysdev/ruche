@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::{
-    core::database::BeeDatabase,
+    core::{database::BeeDatabase, docker::BeeDocker},
     models::{
         bee::{BeeData, BeeInfo},
         config::Config,
@@ -63,6 +63,14 @@ pub async fn save_bee(db: Box<dyn BeeDatabase>, bee_data: &BeeData) -> Result<()
 
     db.add_bee(bee_data.to_owned()).await?;
     Ok(())
+}
+
+pub async fn create_bee_container(
+    config: &Config,
+    docker: Box<dyn BeeDocker>,
+    bee: &BeeInfo,
+) -> Result<()> {
+    docker.new_bee_container(bee, config).await
 }
 
 pub async fn get_bee(db: Box<dyn BeeDatabase>, bee_id: u8) -> Result<Option<BeeData>> {
