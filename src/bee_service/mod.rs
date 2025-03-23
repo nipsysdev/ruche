@@ -87,8 +87,8 @@ impl BeeService {
         save_bee(self.db.clone(), bee_data).await
     }
 
-    pub async fn create_bee_container(&self, bee: &BeeInfo) -> Result<()> {
-        create_bee_container(&self.config, self.docker.clone(), bee).await
+    pub fn data_to_info(&self, data: &BeeData) -> Result<BeeInfo> {
+        data_to_info(&self.config, data)
     }
 
     pub async fn get_bee(&self, bee_id: u8) -> Result<Option<BeeData>> {
@@ -107,7 +107,7 @@ impl BeeService {
         delete_bee(&self.config, self.db.clone(), bee_id).await
     }
 
-    pub fn data_to_info(&self, data: &BeeData) -> Result<BeeInfo> {
-        data_to_info(&self.config, data)
+    pub async fn create_bee_container(&self, bee: &BeeInfo) -> Result<()> {
+        create_bee_container(&self.config, self.docker.clone(), bee).await
     }
 }

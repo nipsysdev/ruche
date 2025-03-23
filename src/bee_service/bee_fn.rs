@@ -65,12 +65,10 @@ pub async fn save_bee(db: Box<dyn BeeDatabase>, bee_data: &BeeData) -> Result<()
     Ok(())
 }
 
-pub async fn create_bee_container(
-    config: &Config,
-    docker: Box<dyn BeeDocker>,
-    bee: &BeeInfo,
-) -> Result<()> {
-    docker.new_bee_container(bee, config).await
+pub fn data_to_info(config: &Config, data: &BeeData) -> Result<BeeInfo> {
+    let api_port = &get_api_port(config, data.id)?;
+    let p2p_port = &get_p2p_port(config, data.id)?;
+    Ok(BeeInfo::new(data, &config.bee.image, api_port, p2p_port))
 }
 
 pub async fn get_bee(db: Box<dyn BeeDatabase>, bee_id: u8) -> Result<Option<BeeData>> {
@@ -92,10 +90,12 @@ pub async fn delete_bee(config: &Config, db: Box<dyn BeeDatabase>, bee_id: u8) -
     Ok(())
 }
 
-pub fn data_to_info(config: &Config, data: &BeeData) -> Result<BeeInfo> {
-    let api_port = &get_api_port(config, data.id)?;
-    let p2p_port = &get_p2p_port(config, data.id)?;
-    Ok(BeeInfo::new(data, &config.bee.image, api_port, p2p_port))
+pub async fn create_bee_container(
+    config: &Config,
+    docker: Box<dyn BeeDocker>,
+    bee: &BeeInfo,
+) -> Result<()> {
+    docker.new_bee_container(bee, config).await
 }
 
 #[cfg(test)]
