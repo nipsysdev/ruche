@@ -35,12 +35,9 @@ async fn create_bee(State(state): State<Arc<AppState>>) -> Result<Json<BeeInfo>,
 
     let data_dir = state.bee_service.create_node_dir(new_bee_id).await?;
 
-    let bee_data = BeeData {
-        id: new_bee_id,
-        neighborhood,
-        reserve_doubling: true,
-        data_dir,
-    };
+    let bee_data = state
+        .bee_service
+        .new_bee_data(new_bee_id, &neighborhood, &data_dir);
 
     state
         .bee_service

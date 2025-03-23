@@ -43,8 +43,11 @@ impl Config {
 #[derive(Deserialize, Default, Clone)]
 pub struct Bee {
     pub image: String,
-    pub password_path: String,
+    pub password: String,
     pub welcome_msg: String,
+    pub full_node: bool,
+    pub swap_enable: bool,
+    pub reserve_doubling: bool,
 }
 
 #[derive(Deserialize, Default, Clone)]
@@ -79,8 +82,11 @@ mod tests {
         let mock_config = r#"
             [bee]
             image = "ethersphere/bee:2.3.2"
-            password_path = "/var/lib/bee/password"
+            password = "some-password"
             welcome_msg = "Hello, Swarm!"
+            full_node = true
+            swap_enable = true
+            reserve_doubling = false
 
             [network]
             nat_addr = "1.1.1.1"
@@ -100,8 +106,11 @@ mod tests {
         let config: Config = toml::from_str(mock_config).unwrap();
 
         assert_eq!(config.bee.image, "ethersphere/bee:2.3.2");
-        assert_eq!(config.bee.password_path, "/var/lib/bee/password");
+        assert_eq!(config.bee.password, "some-password");
         assert_eq!(config.bee.welcome_msg, "Hello, Swarm!");
+        assert_eq!(config.bee.full_node, true);
+        assert_eq!(config.bee.swap_enable, true);
+        assert_eq!(config.bee.reserve_doubling, false);
 
         assert_eq!(config.network.nat_addr, "1.1.1.1");
         assert_eq!(config.network.api_port, "17xx");

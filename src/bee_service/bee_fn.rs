@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::{
     core::database::BeeDatabase,
     models::{
@@ -43,6 +45,17 @@ pub async fn get_new_bee_id(db: Box<dyn BeeDatabase>) -> Result<u8> {
         .map(|v| v.clone())
 }
 
+pub fn new_bee_data(config: &Config, id: u8, neighborhood: &str, data_dir: &PathBuf) -> BeeData {
+    BeeData {
+        id,
+        neighborhood: neighborhood.to_owned(),
+        data_dir: data_dir.to_owned(),
+        full_node: config.bee.full_node,
+        swap_enable: config.bee.swap_enable,
+        reserve_doubling: config.bee.reserve_doubling,
+    }
+}
+
 pub async fn save_bee(db: Box<dyn BeeDatabase>, bee_data: &BeeData) -> Result<BeeData> {
     if !ensure_capacity(db.clone()).await? {
         return Err(anyhow!("Max capacity reached"));
@@ -74,13 +87,7 @@ pub async fn delete_bee(config: &Config, db: Box<dyn BeeDatabase>, bee_id: u8) -
 pub fn data_to_info(config: &Config, data: &BeeData) -> Result<BeeInfo> {
     let api_port = &get_api_port(config, data.id)?;
     let p2p_port = &get_p2p_port(config, data.id)?;
-    Ok(BeeInfo::new(
-        data,
-        &config.bee.image,
-        &config.bee.password_path,
-        api_port,
-        p2p_port,
-    ))
+    Ok(BeeInfo::new(data, &config.bee.image, api_port, p2p_port))
 }
 
 #[cfg(test)]
@@ -211,6 +218,56 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn should_create_new_bee_data_correctly() {
+        let config = Config {
+            bee: crate::models::config::Bee {
+                full_node: false,
+                swap_enable: true,
+                reserve_doubling: true,
+                ..Default::default()
+            },
+            ..Config::default()
+        };
+
+        let id = 5;
+        let neighborhood = "test_neighborhood";
+        let data_dir = PathBuf::from("/tmp/test_dir");
+
+        let bee_data = new_bee_data(&config, id, neighborhood, &data_dir);
+
+        assert_eq!(bee_data.id, id);
+        assert_eq!(bee_data.neighborhood, neighborhood);
+        assert_eq!(bee_data.data_dir, data_dir);
+        assert_eq!(bee_data.full_node, config.bee.full_node);
+        assert_eq!(bee_data.swap_enable, config.bee.swap_enable);
+        assert_eq!(bee_data.reserve_doubling, config.bee.reserve_doubling);
+    }
+
+    #[tokio::test]
+    async fn should_handle_empty_neighborhood_in_new_bee_data() {
+        let config = Config {
+            bee: crate::models::config::Bee {
+                full_node: true,
+                swap_enable: false,
+                reserve_doubling: false,
+                ..Default::default()
+            },
+            ..Config::default()
+        };
+
+        let id = 10;
+        let neighborhood = "";
+        let data_dir = PathBuf::from("/another/path");
+
+        let bee_data = new_bee_data(&config, id, neighborhood, &data_dir);
+
+        assert_eq!(bee_data.neighborhood, "");
+        assert_eq!(bee_data.full_node, config.bee.full_node);
+        assert_eq!(bee_data.swap_enable, config.bee.swap_enable);
+        assert_eq!(bee_data.reserve_doubling, config.bee.reserve_doubling);
+    }
+
+    #[tokio::test]
     async fn should_save_first_bee() {
         let db = Box::new(MockDbService::default());
         let bee_data = BeeData {
@@ -286,7 +343,6 @@ mod tests {
             },
             bee: crate::models::config::Bee {
                 image: "bee-image:latest".to_string(),
-                password_path: "/etc/bee/password".to_string(),
                 ..Default::default()
             },
             ..Config::default()
@@ -303,6 +359,5 @@ mod tests {
         assert_eq!(bee_info.api_port, "1705");
         assert_eq!(bee_info.p2p_port, "1805");
         assert_eq!(bee_info.image, "bee-image:latest");
-        assert_eq!(bee_info.password_path, "/etc/bee/password");
     }
 }

@@ -1,7 +1,10 @@
 [bee]
 image = "ethersphere/bee:2.5.0"
-password_path = "/var/lib/bee/password"
+password = "some-password"
 welcome_msg = "Hello, Swarm!"
+full_node = true
+swap_enable = true
+reserve_doubling = false
 
 [network]
 nat_addr = "1.1.1.1"

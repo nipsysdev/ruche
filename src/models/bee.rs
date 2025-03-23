@@ -8,6 +8,8 @@ use crate::bee_service::BeeService;
 pub struct BeeData {
     pub id: u8,
     pub neighborhood: String,
+    pub full_node: bool,
+    pub swap_enable: bool,
     pub reserve_doubling: bool,
     pub data_dir: PathBuf,
 }
@@ -23,8 +25,9 @@ pub struct BeeInfo {
     pub id: u8,
     pub name: String,
     pub image: String,
-    pub password_path: String,
     pub neighborhood: String,
+    pub full_node: bool,
+    pub swap_enable: bool,
     pub reserve_doubling: bool,
     pub data_dir: PathBuf,
     pub api_port: String,
@@ -32,19 +35,14 @@ pub struct BeeInfo {
 }
 
 impl BeeInfo {
-    pub fn new(
-        data: &BeeData,
-        image: &str,
-        password_path: &str,
-        api_port: &str,
-        p2p_port: &str,
-    ) -> BeeInfo {
+    pub fn new(data: &BeeData, image: &str, api_port: &str, p2p_port: &str) -> BeeInfo {
         BeeInfo {
             id: data.id,
             name: BeeService::get_node_name(data.id),
             image: image.to_owned(),
-            password_path: password_path.to_owned(),
             neighborhood: data.neighborhood.to_owned(),
+            full_node: data.full_node,
+            swap_enable: data.swap_enable,
             reserve_doubling: data.reserve_doubling,
             data_dir: data.data_dir.to_owned(),
             api_port: api_port.to_owned(),
