@@ -13,6 +13,8 @@ pub fn init_bee_handlers(app_state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", post(create_bee))
         .route("/{bee_id}", get(get_bee))
+        .route("/{bee_id}/start", get(start_bee))
+        .route("/{bee_id}/stop", get(stop_bee))
         .route("/{bee_id}", delete(delete_bee))
         .route("/{bee_id}/req", delete(request_bee_deletion))
         .with_state(app_state)
@@ -59,6 +61,24 @@ async fn get_bee(
         .map_err(Into::into)
 }
 
+async fn start_bee(
+    Path(bee_id): Path<u8>,
+    State(state): State<Arc<AppState>>,
+) -> Result<(), HttpError> {
+    let bee = find_bee(bee_id, &state).await?;
+    state.bee_service.start_bee_container(&bee.name()).await?;
+    Ok(())
+}
+
+async fn stop_bee(
+    Path(bee_id): Path<u8>,
+    State(state): State<Arc<AppState>>,
+) -> Result<(), HttpError> {
+    let bee = find_bee(bee_id, &state).await?;
+    state.bee_service.stop_bee_container(&bee.name()).await?;
+    Ok(())
+}
+
 async fn request_bee_deletion(
     Path(bee_id): Path<u8>,
     State(state): State<Arc<AppState>>,
@@ -74,7 +94,7 @@ async fn delete_bee(
     Path(bee_id): Path<u8>,
     State(state): State<Arc<AppState>>,
 ) -> Result<(), HttpError> {
-    find_bee(bee_id, &state).await?;
+    let bee = find_bee(bee_id, &state).await?;
 
     let mut last_bee_deletion_req = state.last_bee_deletion_req.lock().await;
 
@@ -96,9 +116,11 @@ async fn delete_bee(
         ));
     }
 
-    state.bee_service.delete_bee(bee_id).await?;
-
     last_bee_deletion_req.remove(&bee_id);
+
+    state.bee_service.remove_bee_container(&bee.name()).await?;
+
+    state.bee_service.delete_bee(bee_id).await?;
 
     Ok(())
 }

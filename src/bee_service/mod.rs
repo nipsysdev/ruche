@@ -110,4 +110,16 @@ impl BeeService {
     pub async fn create_bee_container(&self, bee: &BeeInfo) -> Result<()> {
         create_bee_container(&self.config, self.docker.clone(), bee).await
     }
+
+    pub async fn start_bee_container(&self, name: &str) -> Result<()> {
+        start_bee_container(self.docker.clone(), name).await
+    }
+
+    pub async fn stop_bee_container(&self, name: &str) -> Result<()> {
+        stop_bee_container(self.docker.clone(), name).await
+    }
+
+    pub async fn remove_bee_container(&self, name: &str) -> Result<()> {
+        remove_bee_container(self.docker.clone(), name).await
+    }
 }

@@ -1,7 +1,10 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use bollard::{
-    container::{Config as ContainerConfig, CreateContainerOptions},
+    container::{
+        Config as ContainerConfig, CreateContainerOptions, RemoveContainerOptions,
+        StartContainerOptions, StopContainerOptions,
+    },
     image::CreateImageOptions,
     secret::{HostConfig, PortBinding, RestartPolicy, RestartPolicyNameEnum},
     Docker as BollarDocker,
@@ -18,6 +21,9 @@ dyn_clone::clone_trait_object!(BeeDocker);
 #[async_trait]
 pub trait BeeDocker: DynClone + Send + Sync {
     async fn new_bee_container(&self, bee: &BeeInfo, config: &Config) -> Result<()>;
+    async fn start_bee_container(&self, name: &str) -> Result<()>;
+    async fn stop_bee_container(&self, name: &str) -> Result<()>;
+    async fn remove_bee_container(&self, name: &str) -> Result<()>;
 }
 
 #[derive(Clone)]
@@ -118,6 +124,30 @@ impl BeeDocker for Docker {
             .await?;
 
         Ok(())
+    }
+
+    async fn start_bee_container(&self, name: &str) -> Result<()> {
+        let docker = self.docker.lock().await;
+        docker
+            .start_container(name, None::<StartContainerOptions<String>>)
+            .await
+            .map_err(Into::into)
+    }
+
+    async fn stop_bee_container(&self, name: &str) -> Result<()> {
+        let docker = self.docker.lock().await;
+        docker
+            .stop_container(name, None::<StopContainerOptions>)
+            .await
+            .map_err(Into::into)
+    }
+
+    async fn remove_bee_container(&self, name: &str) -> Result<()> {
+        let docker = self.docker.lock().await;
+        docker
+            .remove_container(name, None::<RemoveContainerOptions>)
+            .await
+            .map_err(Into::into)
     }
 }
 

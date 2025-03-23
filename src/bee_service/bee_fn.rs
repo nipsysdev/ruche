@@ -98,6 +98,18 @@ pub async fn create_bee_container(
     docker.new_bee_container(bee, config).await
 }
 
+pub async fn start_bee_container(docker: Box<dyn BeeDocker>, name: &str) -> Result<()> {
+    docker.start_bee_container(name).await
+}
+
+pub async fn stop_bee_container(docker: Box<dyn BeeDocker>, name: &str) -> Result<()> {
+    docker.stop_bee_container(name).await
+}
+
+pub async fn remove_bee_container(docker: Box<dyn BeeDocker>, name: &str) -> Result<()> {
+    docker.remove_bee_container(name).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
