@@ -83,7 +83,7 @@ impl BeeService {
         new_bee_data(&self.config, id, neighborhood, data_dir)
     }
 
-    pub async fn save_bee(&self, bee_data: &BeeData) -> Result<BeeData> {
+    pub async fn save_bee(&self, bee_data: &BeeData) -> Result<()> {
         save_bee(self.db.clone(), bee_data).await
     }
 

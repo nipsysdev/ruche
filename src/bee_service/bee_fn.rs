@@ -56,13 +56,13 @@ pub fn new_bee_data(config: &Config, id: u8, neighborhood: &str, data_dir: &Path
     }
 }
 
-pub async fn save_bee(db: Box<dyn BeeDatabase>, bee_data: &BeeData) -> Result<BeeData> {
+pub async fn save_bee(db: Box<dyn BeeDatabase>, bee_data: &BeeData) -> Result<()> {
     if !ensure_capacity(db.clone()).await? {
         return Err(anyhow!("Max capacity reached"));
     }
 
     db.add_bee(bee_data.to_owned()).await?;
-    Ok(bee_data.to_owned())
+    Ok(())
 }
 
 pub async fn get_bee(db: Box<dyn BeeDatabase>, bee_id: u8) -> Result<Option<BeeData>> {
@@ -275,9 +275,8 @@ mod tests {
             ..Default::default()
         };
 
-        let new_bee = save_bee(db.clone(), &bee_data).await.unwrap();
+        save_bee(db.clone(), &bee_data).await.unwrap();
 
-        assert_eq!(new_bee.id, 1);
         assert_eq!(db.count_bees().await.unwrap(), 1);
     }
 
