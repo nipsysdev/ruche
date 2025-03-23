@@ -12,7 +12,7 @@ use network_fn::*;
 use storage_fn::*;
 
 use crate::{
-    core::database::BeeDatabase,
+    core::{database::BeeDatabase, docker::BeeDocker},
     models::{
         bee::{BeeData, BeeInfo},
         config::Config,
@@ -23,11 +23,12 @@ use crate::{
 pub struct BeeService {
     config: Config,
     db: Box<dyn BeeDatabase>,
+    docker: Box<dyn BeeDocker>,
 }
 
 impl BeeService {
-    pub fn new(config: Config, db: Box<dyn BeeDatabase>) -> Self {
-        BeeService { config, db }
+    pub fn new(config: Config, db: Box<dyn BeeDatabase>, docker: Box<dyn BeeDocker>) -> Self {
+        BeeService { config, db, docker }
     }
 
     pub fn format_id(id: u8) -> String {

@@ -8,6 +8,7 @@ use crate::core::database::Database;
 use crate::handlers::bee_handlers::init_bee_handlers;
 use axum::Router;
 use bee_service::BeeService;
+use core::docker::Docker;
 use handlers::bees_handlers::init_bees_handlers;
 use models::config::Config;
 use std::collections::HashMap;
@@ -32,10 +33,10 @@ async fn main() {
 
     let config = Config::parse().await;
     let database = Database::new();
-    // let docker_service = DockerService::new();
+    let docker = Docker::new();
 
     let app_state: Arc<AppState> = Arc::new(AppState {
-        bee_service: BeeService::new(config, Box::new(database)),
+        bee_service: BeeService::new(config, Box::new(database), Box::new(docker)),
         last_bee_deletion_req: Arc::new(Mutex::new(HashMap::new())),
     });
 
