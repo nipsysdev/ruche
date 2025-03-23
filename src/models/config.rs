@@ -57,6 +57,7 @@ pub struct Network {
     pub api_port: String,
     #[serde(deserialize_with = "validate_port")]
     pub p2p_port: String,
+    pub use_docker_host: bool,
 }
 
 #[derive(Deserialize, Default, Clone)]
@@ -92,6 +93,7 @@ mod tests {
             nat_addr = "1.1.1.1"
             api_port = "17xx"
             p2p_port = "18xx"
+            use_docker_host = false
 
             [chains]
             eth_rpc = "https://some.rpc"
@@ -115,6 +117,7 @@ mod tests {
         assert_eq!(config.network.nat_addr, "1.1.1.1");
         assert_eq!(config.network.api_port, "17xx");
         assert_eq!(config.network.p2p_port, "18xx");
+        assert_eq!(config.network.use_docker_host, false);
 
         assert_eq!(config.chains.eth_rpc, "https://some.rpc");
         assert_eq!(config.chains.gno_rpc, "https://some.rpc");
@@ -130,6 +133,7 @@ mod tests {
             nat_addr = "1.1.1.1"
             api_port = "17xx"
             p2p_port = "18xx"
+            use_docker_host = false
         "#;
 
         let network_conf: Network = toml::from_str(mock_config).unwrap();
@@ -144,6 +148,7 @@ mod tests {
             nat_addr = "1.1.1.1"
             api_port = "1781"
             p2p_port = "18xx"
+            use_docker_host = false
         "#;
 
         let result: Result<Network, _> = toml::from_str(mock_config);
@@ -162,6 +167,7 @@ mod tests {
             nat_addr = "1.1.1.1"
             api_port = "17xx"
             p2p_port = "1801"
+            use_docker_host = false
         "#;
 
         let result: Result<Network, _> = toml::from_str(mock_config);

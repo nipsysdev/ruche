@@ -10,6 +10,7 @@ reserve_doubling = false
 nat_addr = "1.1.1.1"
 api_port = "17xx"
 p2p_port = "18xx"
+use_docker_host = false
 
 [chains]
 eth_rpc = "https://some.rpc"
