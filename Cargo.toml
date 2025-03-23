@@ -9,6 +9,7 @@ async-trait = "0.1"
 axum = "0.8"
 bollard = "0.18"
 dyn-clone = "1.0"
+futures-util = "0.3"
 nix = { version = "0.29", features = ["user"] }
 polodb_core = "5.1"
 regex = "1.11"

@@ -2,10 +2,12 @@ use anyhow::Result;
 use async_trait::async_trait;
 use bollard::{
     container::{Config as ContainerConfig, CreateContainerOptions},
+    image::CreateImageOptions,
     secret::{HostConfig, PortBinding, RestartPolicy, RestartPolicyNameEnum},
     Docker as BollarDocker,
 };
 use dyn_clone::DynClone;
+use futures_util::TryStreamExt;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -91,7 +93,19 @@ impl BeeDocker for Docker {
     async fn new_bee_container(&self, bee: &BeeInfo, config: &Config) -> Result<()> {
         let docker = self.docker.lock().await;
 
-        let config = Docker::get_container_config(bee, config);
+        let container_config = Docker::get_container_config(bee, config);
+
+        docker
+            .create_image(
+                Some(CreateImageOptions {
+                    from_image: config.bee.image.to_owned(),
+                    ..CreateImageOptions::default()
+                }),
+                None,
+                None,
+            )
+            .try_collect::<Vec<_>>()
+            .await?;
 
         docker
             .create_container(
@@ -99,7 +113,7 @@ impl BeeDocker for Docker {
                     name: bee.name.clone(),
                     platform: None,
                 }),
-                config,
+                container_config,
             )
             .await?;
 
