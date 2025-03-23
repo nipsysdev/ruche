@@ -39,10 +39,13 @@ async fn create_bee(State(state): State<Arc<AppState>>) -> Result<Json<BeeInfo>,
         .bee_service
         .new_bee_data(new_bee_id, &neighborhood, &data_dir);
 
+    let bee = state.bee_service.data_to_info(&bee_data)?;
+
+    state.bee_service.create_bee_container(&bee).await?;
+
     state.bee_service.save_bee(&bee_data).await?;
 
-    let bee_info = state.bee_service.data_to_info(&bee_data)?;
-    Ok(Json(bee_info))
+    Ok(Json(bee))
 }
 
 async fn get_bee(
