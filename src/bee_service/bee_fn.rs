@@ -370,7 +370,6 @@ mod tests {
             },
             ..Default::default()
         };
-        let db = MockDbService::default();
 
         let bee_data = BeeData {
             id: 5,

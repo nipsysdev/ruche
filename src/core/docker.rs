@@ -229,6 +229,7 @@ mod tests {
                 parent_dir_format: "swarm_data_xx".to_string(),
                 parent_dir_capacity: 4,
             },
+            ..Default::default()
         };
 
         (bee_info, config)

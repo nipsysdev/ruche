@@ -21,6 +21,7 @@ where
 
 #[derive(Deserialize, Default, Clone)]
 pub struct Config {
+    pub port: u16,
     pub bee: Bee,
     pub network: Network,
     pub chains: Chains,
@@ -81,6 +82,8 @@ mod tests {
     #[tokio::test]
     async fn test_parsing_of_valid_config() {
         let mock_config = r#"
+            port = 3000
+
             [bee]
             image = "ethersphere/bee:2.3.2"
             password = "some-password"
@@ -107,6 +110,7 @@ mod tests {
 
         let config: Config = toml::from_str(mock_config).unwrap();
 
+        assert_eq!(config.port, 3000);
         assert_eq!(config.bee.image, "ethersphere/bee:2.3.2");
         assert_eq!(config.bee.password, "some-password");
         assert_eq!(config.bee.welcome_msg, "Hello, Swarm!");

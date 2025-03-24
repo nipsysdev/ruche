@@ -36,7 +36,7 @@ async fn main() {
     let docker = Docker::new();
 
     let app_state: Arc<AppState> = Arc::new(AppState {
-        bee_service: BeeService::new(config, Box::new(database), Box::new(docker)),
+        bee_service: BeeService::new(config.clone(), Box::new(database), Box::new(docker)),
         last_bee_deletion_req: Arc::new(Mutex::new(HashMap::new())),
     });
 
@@ -50,7 +50,7 @@ async fn main() {
                 .compression(),
         );
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     tracing::info!("Listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
