@@ -21,10 +21,11 @@ dyn_clone::clone_trait_object!(BeeDocker);
 
 #[async_trait]
 pub trait BeeDocker: DynClone + Send + Sync {
-    async fn new_bee_container(&self, bee: &BeeInfo, config: &Config) -> Result<()>;
+    async fn create_bee_container(&self, bee: &BeeInfo, config: &Config) -> Result<()>;
     async fn start_bee_container(&self, name: &str) -> Result<()>;
     async fn stop_bee_container(&self, name: &str) -> Result<()>;
     async fn remove_bee_container(&self, name: &str) -> Result<()>;
+    async fn recreate_container(&self, bee: &BeeInfo, config: &Config) -> Result<()>;
     async fn get_bee_container_logs(&self, name: &str) -> Result<Vec<String>>;
 }
 
@@ -107,7 +108,7 @@ impl Docker {
 
 #[async_trait]
 impl BeeDocker for Docker {
-    async fn new_bee_container(&self, bee: &BeeInfo, config: &Config) -> Result<()> {
+    async fn create_bee_container(&self, bee: &BeeInfo, config: &Config) -> Result<()> {
         let docker = self.docker.lock().await;
 
         let container_config = Docker::get_container_config(bee, config);
@@ -159,6 +160,13 @@ impl BeeDocker for Docker {
             .remove_container(name, None::<RemoveContainerOptions>)
             .await
             .map_err(Into::into)
+    }
+
+    async fn recreate_container(&self, bee: &BeeInfo, config: &Config) -> Result<()> {
+        self.stop_bee_container(&bee.name).await?;
+        self.remove_bee_container(&bee.name).await?;
+        self.create_bee_container(bee, config).await?;
+        Ok(())
     }
 
     async fn get_bee_container_logs(&self, name: &str) -> Result<Vec<String>> {

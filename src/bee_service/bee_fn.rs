@@ -65,10 +65,15 @@ pub async fn save_bee(db: Box<dyn BeeDatabase>, bee_data: &BeeData) -> Result<()
     Ok(())
 }
 
-pub fn data_to_info(config: &Config, data: &BeeData) -> Result<BeeInfo> {
-    let api_port = &get_api_port(config, data.id)?;
-    let p2p_port = &get_p2p_port(config, data.id)?;
-    Ok(BeeInfo::new(data, &config.bee.image, api_port, p2p_port))
+pub fn bee_data_to_info(config: &Config, bee_data: &BeeData) -> Result<BeeInfo> {
+    let api_port = &get_api_port(config, bee_data.id)?;
+    let p2p_port = &get_p2p_port(config, bee_data.id)?;
+    Ok(BeeInfo::new(
+        bee_data,
+        &config.bee.image,
+        api_port,
+        p2p_port,
+    ))
 }
 
 pub async fn get_bee(db: Box<dyn BeeDatabase>, bee_id: u8) -> Result<Option<BeeData>> {
@@ -95,7 +100,7 @@ pub async fn create_bee_container(
     docker: Box<dyn BeeDocker>,
     bee: &BeeInfo,
 ) -> Result<()> {
-    docker.new_bee_container(bee, config).await
+    docker.create_bee_container(bee, config).await
 }
 
 pub async fn start_bee_container(docker: Box<dyn BeeDocker>, name: &str) -> Result<()> {
@@ -108,6 +113,14 @@ pub async fn stop_bee_container(docker: Box<dyn BeeDocker>, name: &str) -> Resul
 
 pub async fn remove_bee_container(docker: Box<dyn BeeDocker>, name: &str) -> Result<()> {
     docker.remove_bee_container(name).await
+}
+
+pub async fn recreate_bee_container(
+    config: &Config,
+    docker: Box<dyn BeeDocker>,
+    bee: &BeeInfo,
+) -> Result<()> {
+    docker.recreate_container(bee, config).await
 }
 
 pub async fn get_bee_container_logs(docker: Box<dyn BeeDocker>, name: &str) -> Result<Vec<String>> {
@@ -376,7 +389,7 @@ mod tests {
             ..Default::default()
         };
 
-        let bee_info = data_to_info(&config, &bee_data).unwrap();
+        let bee_info = bee_data_to_info(&config, &bee_data).unwrap();
 
         assert_eq!(bee_info.api_port, "1705");
         assert_eq!(bee_info.p2p_port, "1805");

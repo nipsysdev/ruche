@@ -1,5 +1,5 @@
 use crate::bee_service::BeeService;
-use crate::models::bee::{BeeData, BeeInfo};
+use crate::models::bee::{self, BeeData, BeeInfo};
 use crate::models::http_error::HttpError;
 use crate::AppState;
 use axum::extract::{Path, State};
@@ -15,6 +15,7 @@ pub fn init_bee_handlers(app_state: Arc<AppState>) -> Router {
         .route("/{bee_id}", get(get_bee))
         .route("/{bee_id}/start", get(start_bee))
         .route("/{bee_id}/stop", get(stop_bee))
+        .route("/{bee_id}/recreate", get(recreate_bee))
         .route("/{bee_id}/logs", get(get_bee_logs))
         .route("/{bee_id}", delete(delete_bee))
         .route("/{bee_id}/req", delete(request_bee_deletion))
@@ -42,7 +43,7 @@ async fn create_bee(State(state): State<Arc<AppState>>) -> Result<Json<BeeInfo>,
         .bee_service
         .new_bee_data(new_bee_id, &neighborhood, &data_dir);
 
-    let bee = state.bee_service.data_to_info(&bee_data)?;
+    let bee = state.bee_service.bee_data_to_info(&bee_data)?;
 
     state.bee_service.create_bee_container(&bee).await?;
 
@@ -55,9 +56,14 @@ async fn get_bee(
     Path(bee_id): Path<u8>,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<BeeInfo>, HttpError> {
-    find_bee(bee_id, &state)
+    find_bee_data(bee_id, &state)
         .await
-        .and_then(|data| state.bee_service.data_to_info(&data).map_err(Into::into))
+        .and_then(|data| {
+            state
+                .bee_service
+                .bee_data_to_info(&data)
+                .map_err(Into::into)
+        })
         .map(Json)
         .map_err(Into::into)
 }
@@ -66,8 +72,11 @@ async fn start_bee(
     Path(bee_id): Path<u8>,
     State(state): State<Arc<AppState>>,
 ) -> Result<(), HttpError> {
-    let bee = find_bee(bee_id, &state).await?;
-    state.bee_service.start_bee_container(&bee.name()).await?;
+    let bee_data = find_bee_data(bee_id, &state).await?;
+    state
+        .bee_service
+        .start_bee_container(&bee_data.name())
+        .await?;
     Ok(())
 }
 
@@ -75,8 +84,21 @@ async fn stop_bee(
     Path(bee_id): Path<u8>,
     State(state): State<Arc<AppState>>,
 ) -> Result<(), HttpError> {
-    let bee = find_bee(bee_id, &state).await?;
-    state.bee_service.stop_bee_container(&bee.name()).await?;
+    let bee_data = find_bee_data(bee_id, &state).await?;
+    state
+        .bee_service
+        .stop_bee_container(&bee_data.name())
+        .await?;
+    Ok(())
+}
+
+async fn recreate_bee(
+    Path(bee_id): Path<u8>,
+    State(state): State<Arc<AppState>>,
+) -> Result<(), HttpError> {
+    let bee_data = find_bee_data(bee_id, &state).await?;
+    let bee = state.bee_service.bee_data_to_info(&bee_data)?;
+    state.bee_service.recreate_bee_container(&bee).await?;
     Ok(())
 }
 
@@ -84,7 +106,7 @@ async fn get_bee_logs(
     Path(bee_id): Path<u8>,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<String>>, HttpError> {
-    let bee = find_bee(bee_id, &state).await?;
+    let bee = find_bee_data(bee_id, &state).await?;
     state
         .bee_service
         .get_bee_container_logs(&bee.name())
@@ -97,7 +119,7 @@ async fn request_bee_deletion(
     Path(bee_id): Path<u8>,
     State(state): State<Arc<AppState>>,
 ) -> Result<(), HttpError> {
-    find_bee(bee_id, &state).await?;
+    find_bee_data(bee_id, &state).await?;
 
     let mut last_bee_deletion_req = state.last_bee_deletion_req.lock().await;
     last_bee_deletion_req.insert(bee_id, SystemTime::now());
@@ -108,7 +130,7 @@ async fn delete_bee(
     Path(bee_id): Path<u8>,
     State(state): State<Arc<AppState>>,
 ) -> Result<(), HttpError> {
-    let bee = find_bee(bee_id, &state).await?;
+    let bee = find_bee_data(bee_id, &state).await?;
 
     let mut last_bee_deletion_req = state.last_bee_deletion_req.lock().await;
 
@@ -139,7 +161,7 @@ async fn delete_bee(
     Ok(())
 }
 
-async fn find_bee(bee_id: u8, state: &Arc<AppState>) -> Result<BeeData, HttpError> {
+async fn find_bee_data(bee_id: u8, state: &Arc<AppState>) -> Result<BeeData, HttpError> {
     match state.bee_service.get_bee(bee_id).await? {
         Some(data) => Ok(data),
         None => Err(HttpError::new(

@@ -87,8 +87,8 @@ impl BeeService {
         save_bee(self.db.clone(), bee_data).await
     }
 
-    pub fn data_to_info(&self, data: &BeeData) -> Result<BeeInfo> {
-        data_to_info(&self.config, data)
+    pub fn bee_data_to_info(&self, bee_data: &BeeData) -> Result<BeeInfo> {
+        bee_data_to_info(&self.config, bee_data)
     }
 
     pub async fn get_bee(&self, bee_id: u8) -> Result<Option<BeeData>> {
@@ -121,6 +121,10 @@ impl BeeService {
 
     pub async fn remove_bee_container(&self, name: &str) -> Result<()> {
         remove_bee_container(self.docker.clone(), name).await
+    }
+
+    pub async fn recreate_bee_container(&self, bee: &BeeInfo) -> Result<()> {
+        recreate_bee_container(&self.config, self.docker.clone(), bee).await
     }
 
     pub async fn get_bee_container_logs(&self, name: &str) -> Result<Vec<String>> {
