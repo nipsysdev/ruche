@@ -45,21 +45,6 @@ pub async fn create_node_dir(config: &Config, bee_id: u8) -> Result<PathBuf> {
 
     fs::create_dir_all(&node_path).await?;
 
-    // Could it work without this?
-    /*let bee_uid = User::from_name("bee")?
-        .map(|user| user.uid)
-        .ok_or(anyhow!("Missing bee user"))?;
-
-    let systemd_journal_gid = Group::from_name("systemd-journal")?
-        .map(|group| group.gid)
-        .ok_or(anyhow!("Missing systemd-journal group"))?;
-
-    chown(
-        &dir_path,
-        Some(u32::from(bee_uid)),
-        Some(u32::from(systemd_journal_gid)),
-    )?;*/
-
     let mut perms = fs::metadata(&node_path).await?.permissions();
     perms.set_mode(0o755);
     fs::set_permissions(&node_path, perms).await?;
