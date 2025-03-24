@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::utils::regex::{RegexVisitor, PORT_REGEX, VOLUME_NAME_REGEX};
 use serde::{Deserialize, Deserializer};
