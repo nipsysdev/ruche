@@ -8,6 +8,7 @@ use crate::{
     },
 };
 use anyhow::{anyhow, Result};
+use futures_util::future::{join, join_all, try_join_all};
 use tokio::fs;
 
 use super::{
@@ -121,6 +122,23 @@ pub async fn recreate_bee_container(
     bee: &BeeInfo,
 ) -> Result<()> {
     docker.recreate_container(bee, config).await
+}
+
+pub async fn recreate_bee_containers(
+    config: &Config,
+    docker: Box<dyn BeeDocker>,
+    bees: Vec<BeeInfo>,
+) -> Result<()> {
+    let recreates = bees
+        .into_iter()
+        .map(|bee| {
+            let docker_clone = docker.clone();
+            async move { docker_clone.recreate_container(&bee, config).await }
+        })
+        .collect::<Vec<_>>();
+
+    try_join_all(recreates).await?;
+    Ok(())
 }
 
 pub async fn get_bee_container_logs(docker: Box<dyn BeeDocker>, name: &str) -> Result<Vec<String>> {

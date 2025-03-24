@@ -127,6 +127,10 @@ impl BeeService {
         recreate_bee_container(&self.config, self.docker.clone(), bee).await
     }
 
+    pub async fn recreate_bee_containers(&self, bees: Vec<BeeInfo>) -> Result<()> {
+        recreate_bee_containers(&self.config, self.docker.clone(), bees).await
+    }
+
     pub async fn get_bee_container_logs(&self, name: &str) -> Result<Vec<String>> {
         get_bee_container_logs(self.docker.clone(), name).await
     }
