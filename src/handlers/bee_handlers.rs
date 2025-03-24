@@ -15,6 +15,7 @@ pub fn init_bee_handlers(app_state: Arc<AppState>) -> Router {
         .route("/{bee_id}", get(get_bee))
         .route("/{bee_id}/start", get(start_bee))
         .route("/{bee_id}/stop", get(stop_bee))
+        .route("/{bee_id}/logs", get(get_bee_logs))
         .route("/{bee_id}", delete(delete_bee))
         .route("/{bee_id}/req", delete(request_bee_deletion))
         .with_state(app_state)
@@ -77,6 +78,19 @@ async fn stop_bee(
     let bee = find_bee(bee_id, &state).await?;
     state.bee_service.stop_bee_container(&bee.name()).await?;
     Ok(())
+}
+
+async fn get_bee_logs(
+    Path(bee_id): Path<u8>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<String>>, HttpError> {
+    let bee = find_bee(bee_id, &state).await?;
+    state
+        .bee_service
+        .get_bee_container_logs(&bee.name())
+        .await
+        .map(Json)
+        .map_err(Into::into)
 }
 
 async fn request_bee_deletion(

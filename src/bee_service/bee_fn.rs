@@ -110,6 +110,10 @@ pub async fn remove_bee_container(docker: Box<dyn BeeDocker>, name: &str) -> Res
     docker.remove_bee_container(name).await
 }
 
+pub async fn get_bee_container_logs(docker: Box<dyn BeeDocker>, name: &str) -> Result<Vec<String>> {
+    docker.get_bee_container_logs(name).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

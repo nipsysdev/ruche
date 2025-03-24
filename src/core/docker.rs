@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use bollard::{
     container::{
-        Config as ContainerConfig, CreateContainerOptions, RemoveContainerOptions,
+        Config as ContainerConfig, CreateContainerOptions, LogsOptions, RemoveContainerOptions,
         StartContainerOptions, StopContainerOptions,
     },
     image::CreateImageOptions,
@@ -11,6 +11,7 @@ use bollard::{
 };
 use dyn_clone::DynClone;
 use futures_util::TryStreamExt;
+use nix::unistd::{getgid, getuid};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -24,6 +25,7 @@ pub trait BeeDocker: DynClone + Send + Sync {
     async fn start_bee_container(&self, name: &str) -> Result<()>;
     async fn stop_bee_container(&self, name: &str) -> Result<()>;
     async fn remove_bee_container(&self, name: &str) -> Result<()>;
+    async fn get_bee_container_logs(&self, name: &str) -> Result<Vec<String>>;
 }
 
 #[derive(Clone)]
@@ -44,14 +46,14 @@ impl Docker {
         let data_dir_mount = format!("{}:{}", bee.data_dir.to_string_lossy(), "/home/bee/.bee");
         let mut port_binding = HashMap::new();
         port_binding.insert(
-            format!("{}/tcp", bee.api_port),
+            bee.api_port.clone(),
             Some(vec![PortBinding {
                 host_port: Some(bee.api_port.clone()),
                 host_ip: Some("127.0.0.1".to_owned()),
             }]),
         );
         port_binding.insert(
-            format!("{}/tcp", bee.p2p_port),
+            bee.p2p_port.clone(),
             Some(vec![PortBinding {
                 host_port: Some(bee.p2p_port.clone()),
                 host_ip: Some("0.0.0.0".to_owned()),
@@ -63,8 +65,13 @@ impl Docker {
             true => Some(vec!["host.docker.internal:host-gateway".to_owned()]),
         };
 
+        let mut exposed_ports = HashMap::new();
+        exposed_ports.insert(bee.api_port.to_string(), HashMap::new());
+        exposed_ports.insert(bee.p2p_port.to_string(), HashMap::new());
+
         ContainerConfig {
             image: Some(bee.image.clone()),
+            cmd: Some(vec!["start".to_owned()]),
             host_config: Some(HostConfig {
                 binds: Some(vec![data_dir_mount]),
                 port_bindings: Some(port_binding),
@@ -75,6 +82,8 @@ impl Docker {
                 extra_hosts,
                 ..Default::default()
             }),
+            exposed_ports: Some(exposed_ports),
+            user: Some(format!("{}:{}", getuid(), getgid())),
             env: Some(vec![
                 format!("BEE_API_ADDR=127.0.0.1:{}", bee.api_port),
                 format!("BEE_BLOCKCHAIN_RPC_ENDPOINT={}", config.chains.gno_rpc),
@@ -148,6 +157,26 @@ impl BeeDocker for Docker {
             .remove_container(name, None::<RemoveContainerOptions>)
             .await
             .map_err(Into::into)
+    }
+
+    async fn get_bee_container_logs(&self, name: &str) -> Result<Vec<String>> {
+        let docker = self.docker.lock().await;
+        let logs = docker
+            .logs(
+                name,
+                Some(LogsOptions::<String> {
+                    stdout: true,
+                    stderr: true,
+                    ..Default::default()
+                }),
+            )
+            .try_collect::<Vec<_>>()
+            .await?;
+
+        Ok(logs
+            .into_iter()
+            .map(|log| String::from_utf8_lossy(&log.into_bytes()).into_owned())
+            .collect())
     }
 }
 

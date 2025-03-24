@@ -122,4 +122,8 @@ impl BeeService {
     pub async fn remove_bee_container(&self, name: &str) -> Result<()> {
         remove_bee_container(self.docker.clone(), name).await
     }
+
+    pub async fn get_bee_container_logs(&self, name: &str) -> Result<Vec<String>> {
+        get_bee_container_logs(self.docker.clone(), name).await
+    }
 }
