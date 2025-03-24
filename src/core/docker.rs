@@ -78,7 +78,7 @@ impl Docker {
                 binds: Some(vec![data_dir_mount]),
                 port_bindings: Some(port_binding),
                 restart_policy: Some(RestartPolicy {
-                    name: Some(RestartPolicyNameEnum::ALWAYS),
+                    name: Some(RestartPolicyNameEnum::UNLESS_STOPPED),
                     maximum_retry_count: None,
                 }),
                 extra_hosts,
@@ -346,7 +346,10 @@ mod tests {
             .as_ref()
             .unwrap();
 
-        assert_eq!(restart_policy.name, Some(RestartPolicyNameEnum::ALWAYS));
+        assert_eq!(
+            restart_policy.name,
+            Some(RestartPolicyNameEnum::UNLESS_STOPPED)
+        );
         assert!(restart_policy.maximum_retry_count.is_none());
     }
 
