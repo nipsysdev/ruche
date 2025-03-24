@@ -43,7 +43,9 @@ impl Docker {
     }
 
     fn get_container_config(bee: &BeeInfo, config: &Config) -> ContainerConfig<String> {
-        let data_dir_mount = format!("{}:{}", bee.data_dir.to_string_lossy(), "/home/bee/.bee");
+        let bee_data_dir = "/home/bee/.bee";
+        let data_dir_mount = format!("{}:{}", bee.data_dir.to_string_lossy(), bee_data_dir);
+
         let mut port_binding = HashMap::new();
         port_binding.insert(
             bee.api_port.clone(),
@@ -60,14 +62,14 @@ impl Docker {
             }]),
         );
 
+        let mut exposed_ports = HashMap::new();
+        exposed_ports.insert(bee.api_port.to_string(), HashMap::new());
+        exposed_ports.insert(bee.p2p_port.to_string(), HashMap::new());
+
         let extra_hosts = match config.network.use_docker_host {
             false => None,
             true => Some(vec!["host.docker.internal:host-gateway".to_owned()]),
         };
-
-        let mut exposed_ports = HashMap::new();
-        exposed_ports.insert(bee.api_port.to_string(), HashMap::new());
-        exposed_ports.insert(bee.p2p_port.to_string(), HashMap::new());
 
         ContainerConfig {
             image: Some(bee.image.clone()),
@@ -87,7 +89,7 @@ impl Docker {
             env: Some(vec![
                 format!("BEE_API_ADDR=127.0.0.1:{}", bee.api_port),
                 format!("BEE_BLOCKCHAIN_RPC_ENDPOINT={}", config.chains.gno_rpc),
-                format!("BEE_DATA_DIR={}", "/home/bee/.bee"),
+                format!("BEE_DATA_DIR={}", bee_data_dir),
                 format!("BEE_FULL_NODE={}", bee.full_node),
                 format!("BEE_NAT_ADDR={}:{}", config.network.nat_addr, bee.p2p_port),
                 format!("BEE_P2P_ADDR=:{}", bee.p2p_port),
@@ -272,8 +274,8 @@ mod tests {
             .as_ref()
             .unwrap();
 
-        let api_key = "1701/tcp";
-        let api_binding = port_bindings.get(api_key).unwrap();
+        let api_key = bee_info.api_port.clone();
+        let api_binding = port_bindings.get(&api_key).unwrap();
 
         assert_eq!(
             api_binding,
@@ -296,8 +298,8 @@ mod tests {
             .as_ref()
             .unwrap();
 
-        let p2p_key = "1801/tcp";
-        let p2p_binding = port_bindings.get(p2p_key).unwrap();
+        let p2p_key = bee_info.p2p_port.clone();
+        let p2p_binding = port_bindings.get(&p2p_key).unwrap();
 
         assert_eq!(
             p2p_binding,
@@ -379,5 +381,32 @@ mod tests {
             .unwrap()
             .extra_hosts
             .is_none());
+    }
+
+    #[test]
+    fn test_cmd() {
+        let (bee_info, config) = create_test_data();
+        let container_config = Docker::get_container_config(&bee_info, &config);
+        assert_eq!(container_config.cmd, Some(vec!["start".to_string()]));
+    }
+
+    #[test]
+    fn test_exposed_ports() {
+        let (bee_info, config) = create_test_data();
+        let container_config = Docker::get_container_config(&bee_info, &config);
+        let exposed_ports = container_config.exposed_ports.as_ref().unwrap();
+        assert!(exposed_ports.contains_key("1701"));
+        assert!(exposed_ports.contains_key("1801"));
+    }
+
+    #[test]
+    fn test_user() {
+        let (bee_info, config) = create_test_data();
+        let container_config = Docker::get_container_config(&bee_info, &config);
+        let user = container_config.user.as_ref().unwrap();
+        let parts: Vec<&str> = user.split(':').collect();
+        assert_eq!(parts.len(), 2);
+        assert!(parts[0].parse::<u32>().is_ok());
+        assert!(parts[1].parse::<u32>().is_ok());
     }
 }
