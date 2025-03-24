@@ -108,8 +108,34 @@ pub async fn start_bee_container(docker: Box<dyn BeeDocker>, name: &str) -> Resu
     docker.start_bee_container(name).await
 }
 
+pub async fn start_bee_containers(docker: Box<dyn BeeDocker>, names: Vec<String>) -> Result<()> {
+    let starts = names
+        .into_iter()
+        .map(|name| {
+            let docker_clone = docker.clone();
+            async move { docker_clone.start_bee_container(&name).await }
+        })
+        .collect::<Vec<_>>();
+
+    try_join_all(starts).await?;
+    Ok(())
+}
+
 pub async fn stop_bee_container(docker: Box<dyn BeeDocker>, name: &str) -> Result<()> {
     docker.stop_bee_container(name).await
+}
+
+pub async fn stop_bee_containers(docker: Box<dyn BeeDocker>, names: Vec<String>) -> Result<()> {
+    let starts = names
+        .into_iter()
+        .map(|name| {
+            let docker_clone = docker.clone();
+            async move { docker_clone.stop_bee_container(&name).await }
+        })
+        .collect::<Vec<_>>();
+
+    try_join_all(starts).await?;
+    Ok(())
 }
 
 pub async fn remove_bee_container(docker: Box<dyn BeeDocker>, name: &str) -> Result<()> {

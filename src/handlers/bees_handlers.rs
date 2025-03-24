@@ -1,4 +1,4 @@
-use crate::models::bee::{BeeData, BeeInfo};
+use crate::models::bee::{self, BeeData, BeeInfo};
 use crate::models::http_error::HttpError;
 use crate::AppState;
 use axum::extract::State;
@@ -9,6 +9,8 @@ use std::sync::Arc;
 pub fn init_bees_handlers(app_state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(get_bees))
+        .route("/start", get(start_bees))
+        .route("/stop", get(stop_bees))
         .route("/recreate", get(recreate_bees))
         .with_state(app_state)
 }
@@ -19,6 +21,38 @@ async fn get_bees(State(state): State<Arc<AppState>>) -> Result<Json<Vec<BeeData
         .get_bees()
         .await
         .map(Json)
+        .map_err(Into::into)
+}
+
+async fn start_bees(State(state): State<Arc<AppState>>) -> Result<(), HttpError> {
+    let bees_data = state
+        .bee_service
+        .get_bees()
+        .await?
+        .iter()
+        .map(|bee_data| bee_data.name())
+        .collect();
+
+    state
+        .bee_service
+        .start_bee_containers(bees_data)
+        .await
+        .map_err(Into::into)
+}
+
+async fn stop_bees(State(state): State<Arc<AppState>>) -> Result<(), HttpError> {
+    let bees_data = state
+        .bee_service
+        .get_bees()
+        .await?
+        .iter()
+        .map(|bee_data| bee_data.name())
+        .collect();
+
+    state
+        .bee_service
+        .stop_bee_containers(bees_data)
+        .await
         .map_err(Into::into)
 }
 
