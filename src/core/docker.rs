@@ -88,7 +88,7 @@ impl Docker {
             exposed_ports: Some(exposed_ports),
             user: Some(format!("{}:{}", getuid(), getgid())),
             env: Some(vec![
-                format!("BEE_API_ADDR=127.0.0.1:{}", bee.api_port),
+                format!("BEE_API_ADDR=0.0.0.0:{}", bee.api_port),
                 format!("BEE_BLOCKCHAIN_RPC_ENDPOINT={}", config.chains.gno_rpc),
                 format!("BEE_DATA_DIR={}", bee_data_dir),
                 format!("BEE_FULL_NODE={}", bee.full_node),
