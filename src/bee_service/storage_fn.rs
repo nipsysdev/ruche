@@ -101,9 +101,9 @@ mod tests {
             storage: Storage {
                 parent_dir_format: String::from("swarm_data_xx"),
                 parent_dir_capacity: 4,
-                ..Storage::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
 
         assert_eq!(get_parent_dir_name(&config, 1).unwrap(), "swarm_data_01");
@@ -122,9 +122,9 @@ mod tests {
             storage: Storage {
                 parent_dir_format: String::from("swarm_data_x"),
                 parent_dir_capacity: 4,
-                ..Storage::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
 
         let result = get_parent_dir_name(&config, 1);
@@ -144,9 +144,9 @@ mod tests {
                 root_path: root_path.clone(),
                 parent_dir_format: "swarm_data_xx".to_string(),
                 parent_dir_capacity: 4,
-                ..Storage::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
 
         let path = get_node_path(&config, 5).unwrap();
@@ -163,9 +163,9 @@ mod tests {
                 root_path: root_path.clone(),
                 parent_dir_format: "swarm_data_x".to_string(),
                 parent_dir_capacity: 4,
-                ..Storage::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
 
         let result = get_node_path(&config, 1);
@@ -186,9 +186,9 @@ mod tests {
                 root_path: root_path.clone(),
                 parent_dir_format: "data_xx".to_string(),
                 parent_dir_capacity: 3,
-                ..Storage::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
 
         let path = get_node_path(&config, 1).unwrap();
@@ -205,9 +205,9 @@ mod tests {
                 root_path: root_path.clone(),
                 parent_dir_format: "storage_xx".to_string(),
                 parent_dir_capacity: 4,
-                ..Storage::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
 
         let path = get_node_path(&config, 99).unwrap();
@@ -224,9 +224,9 @@ mod tests {
                 root_path: root_path.clone(),
                 parent_dir_format: String::from("swarm_data_xx"),
                 parent_dir_capacity: 4,
-                ..Storage::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
 
         let result = create_node_dir(&config, 1).await;
@@ -249,9 +249,9 @@ mod tests {
                 root_path: root_path.clone(),
                 parent_dir_format: String::from("swarm_data_xx"),
                 parent_dir_capacity: 4,
-                ..Storage::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
         let existing_path = root_path.join("swarm_data_01").join("node_01");
         tokio::fs::create_dir_all(&existing_path).await.unwrap();
@@ -273,9 +273,9 @@ mod tests {
                 root_path: root_path.clone(),
                 parent_dir_format: String::from("swarm_data_xx"),
                 parent_dir_capacity: 4,
-                ..Storage::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
         let existing_path = root_path.join("swarm_data_01").join("node_02");
         tokio::fs::create_dir_all(&existing_path).await.unwrap();
@@ -294,9 +294,9 @@ mod tests {
                 root_path,
                 parent_dir_format: String::from("swarm_data_x"),
                 parent_dir_capacity: 4,
-                ..Storage::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
 
         let result = create_node_dir(&config, 1).await;

@@ -53,7 +53,7 @@ mod tests {
                 p2p_port: "18xx".to_string(),
                 ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
 
         let api_port = get_api_port(&config, 5).unwrap();
@@ -70,7 +70,7 @@ mod tests {
                 api_port: "1705".to_string(),
                 ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
 
         assert!(get_api_port(&config, 5).is_err());
@@ -83,7 +83,7 @@ mod tests {
                 p2p_port: "test".to_string(),
                 ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
 
         assert!(get_p2p_port(&config, 5).is_err());

@@ -246,7 +246,7 @@ mod tests {
                 reserve_doubling: true,
                 ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
 
         let id = 5;
@@ -272,7 +272,7 @@ mod tests {
                 reserve_doubling: false,
                 ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
 
         let id = 10;
@@ -326,14 +326,14 @@ mod tests {
                 root_path: root_path.clone(),
                 parent_dir_format: "swarm_data_xx".to_string(),
                 parent_dir_capacity: 4,
-                ..Storage::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
         let bee_id = 1;
         db.add_bee(BeeData {
             id: bee_id,
-            ..BeeData::default()
+            ..Default::default()
         })
         .await
         .unwrap();
@@ -364,7 +364,7 @@ mod tests {
                 image: "bee-image:latest".to_string(),
                 ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         };
         let db = MockDbService::default();
 

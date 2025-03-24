@@ -73,7 +73,7 @@ impl Docker {
                     maximum_retry_count: None,
                 }),
                 extra_hosts,
-                ..HostConfig::default()
+                ..Default::default()
             }),
             env: Some(vec![
                 format!("BEE_API_ADDR=127.0.0.1:{}", bee.api_port),
@@ -89,7 +89,7 @@ impl Docker {
                 format!("BEE_TARGET_NEIGHBORHOOD={}", bee.neighborhood),
                 format!("BEE_WELCOME_MESSAGE={}", config.bee.welcome_msg),
             ]),
-            ..ContainerConfig::default()
+            ..Default::default()
         }
     }
 }
@@ -105,7 +105,7 @@ impl BeeDocker for Docker {
             .create_image(
                 Some(CreateImageOptions {
                     from_image: config.bee.image.to_owned(),
-                    ..CreateImageOptions::default()
+                    ..Default::default()
                 }),
                 None,
                 None,
