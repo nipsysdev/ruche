@@ -326,7 +326,7 @@ mod tests {
         let container_config = Docker::get_container_config(&bee_info, &config);
         let env = container_config.env.as_ref().unwrap();
 
-        assert!(env.contains(&"BEE_API_ADDR=127.0.0.1:1701".to_owned()));
+        assert!(env.contains(&"BEE_API_ADDR=0.0.0.0:1701".to_owned()));
         assert!(env
             .contains(&"BEE_BLOCKCHAIN_RPC_ENDPOINT=http://host.docker.internal:8545".to_owned()));
         assert!(env.contains(&"BEE_DATA_DIR=/home/bee/.bee".to_owned()));
