@@ -8,7 +8,6 @@ use std::path::PathBuf;
 use anyhow::Result;
 use bee_fn::*;
 use neighborhood_fn::*;
-use network_fn::*;
 use storage_fn::*;
 
 use crate::{
@@ -31,40 +30,12 @@ impl BeeService {
         BeeService { config, db, docker }
     }
 
-    pub fn format_id(id: u8) -> String {
-        format_id(id)
-    }
-
     pub fn get_node_name(id: u8) -> String {
         get_node_name(id)
     }
 
-    pub fn get_port(id: u8, base_port: &str) -> Result<String> {
-        get_port(id, base_port)
-    }
-
     pub async fn get_neighborhood() -> Result<String> {
         get_neighborhood().await
-    }
-
-    pub fn get_api_port(&self, id: u8) -> Result<String> {
-        get_api_port(&self.config, id)
-    }
-
-    pub fn get_p2p_port(&self, id: u8) -> Result<String> {
-        get_p2p_port(&self.config, id)
-    }
-
-    pub fn get_dir_id(&self, bee_id: u8) -> u8 {
-        get_dir_id(&self.config, bee_id)
-    }
-
-    pub fn get_parent_dir_name(&self, bee_id: u8) -> Result<String> {
-        get_parent_dir_name(&self.config, bee_id)
-    }
-
-    pub fn get_node_path(&self, bee_id: u8) -> Result<PathBuf> {
-        get_node_path(&self.config, bee_id)
     }
 
     pub async fn create_node_dir(&self, bee_id: u8) -> Result<PathBuf> {
