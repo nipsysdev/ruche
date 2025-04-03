@@ -163,8 +163,10 @@ impl BeeDocker for Docker {
     }
 
     async fn recreate_container(&self, bee: &BeeInfo, config: &Config) -> Result<()> {
-        self.stop_bee_container(&bee.name).await?;
-        self.remove_bee_container(&bee.name).await?;
+        self.stop_bee_container(&bee.name).await.unwrap_or_default();
+        self.remove_bee_container(&bee.name)
+            .await
+            .unwrap_or_default();
         self.create_bee_container(bee, config).await?;
         Ok(())
     }
